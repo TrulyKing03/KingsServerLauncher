@@ -30,7 +30,7 @@ def build_launcher(
         _run([sys.executable, "-m", "pip", "install", "-e", ".[build]"], cwd=project_root)
         python_cmd = [sys.executable]
 
-    launcher_script = project_root / "mcserverlib" / "gui_launcher.py"
+    launcher_script = project_root / "launcher_entry.py"
     command = [
         *python_cmd,
         "-m",

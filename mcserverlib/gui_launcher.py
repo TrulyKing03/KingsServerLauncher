@@ -10,10 +10,16 @@ from tkinter import filedialog, messagebox, ttk
 from tkinter.scrolledtext import ScrolledText
 import webbrowser
 
-from .catalog import VersionCatalog
-from .manager import ServerManager
-from .models import InstallRequest, InstallResult
-from .process import ServerProcess
+try:
+    from .catalog import VersionCatalog
+    from .manager import ServerManager
+    from .models import InstallRequest, InstallResult
+    from .process import ServerProcess
+except ImportError:  # pragma: no cover - fallback for direct/frozen entry
+    from mcserverlib.catalog import VersionCatalog
+    from mcserverlib.manager import ServerManager
+    from mcserverlib.models import InstallRequest, InstallResult
+    from mcserverlib.process import ServerProcess
 
 DISCORD_URL = "https://discord.gg/AqUmRUshhK"
 WEBSITE_URL = "https://TrulyKing.dev"
