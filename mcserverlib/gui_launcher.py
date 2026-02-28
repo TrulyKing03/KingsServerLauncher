@@ -244,12 +244,13 @@ class LauncherApp(tk.Tk):
         self.mc_version_combo.grid(row=row, column=1, sticky="ew", padx=(8, 0), pady=(6, 8))
 
         row += 1
-        ttk.Button(
+        self.refresh_versions_btn = ttk.Button(
             left,
             text="Refresh Versions",
             style="Secondary.TButton",
             command=self._refresh_versions,
-        ).grid(row=row, column=0, columnspan=2, sticky="ew")
+        )
+        self.refresh_versions_btn.grid(row=row, column=0, columnspan=2, sticky="ew")
 
         row += 1
         ttk.Label(left, text="Loader Version (Optional)", style="FieldLabel.TLabel").grid(
@@ -555,8 +556,12 @@ class LauncherApp(tk.Tk):
         state = "normal" if enabled else "disabled"
         self.install_btn.configure(state=state)
         self.start_btn.configure(state=state)
-        self.refresh_versions_btn.configure(state=state)
-        if self.loader_var.get() in {"fabric", "quilt", "forge", "neoforge"}:
+        if hasattr(self, "refresh_versions_btn"):
+            self.refresh_versions_btn.configure(state=state)
+        if (
+            hasattr(self, "refresh_loader_versions_btn")
+            and self.loader_var.get() in {"fabric", "quilt", "forge", "neoforge"}
+        ):
             self.refresh_loader_versions_btn.configure(state=state)
         self._update_console_controls()
 
