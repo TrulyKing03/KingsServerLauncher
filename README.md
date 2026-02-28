@@ -28,7 +28,7 @@ The library targets stable versions by default when `--minecraft-version latest`
 ## Requirements
 
 - Python `>= 3.10`
-- Java installed and reachable (default command: `java`)
+- A JVM runtime installed and reachable (default executable: `java`)
 - Internet access for metadata and artifact downloads
 
 ## Install
@@ -178,14 +178,14 @@ process.stop()
 
 ### Forge
 
-- Uses Forge Maven metadata.
-- For `latest`, uses Maven `<release>` directly.
+- Uses Forge metadata endpoints.
+- For `latest`, uses the upstream release marker directly.
 - For pinned Minecraft versions, selects latest matching Forge line.
 - Runs Forge installer and launches via generated argfiles.
 
 ### NeoForge
 
-- Uses NeoForge Maven metadata.
+- Uses NeoForge metadata endpoints.
 - Resolves stable versions by default (`alpha`/`beta`/`snapshot` excluded unless required by the request).
 - Runs NeoForge installer and launches via generated argfiles.
 
@@ -196,11 +196,11 @@ Each installed instance stores a `.mcserverlib.json` manifest in its server fold
 The manifest contains:
 
 - resolved loader/version/build information
-- Java major version requirement (when available)
+- runtime major-version requirement (when available)
 - exact startup command template for the host platform
 - download sources used during installation
 
-For loaders that generate startup scripts with `pause` on Windows (Forge/NeoForge), the library intentionally launches Java with argfiles directly to keep automation and graceful shutdown reliable.
+For loaders that generate startup scripts with `pause` on Windows (Forge/NeoForge), the library intentionally launches the runtime with argfiles directly to keep automation and graceful shutdown reliable.
 
 ## CLI Reference
 
@@ -220,7 +220,7 @@ Optional:
 - `--minecraft-version` (default: `latest`)
 - `--loader-version` (provider-specific exact version)
 - `--build` (provider-specific build number)
-- `--java` (Java executable path)
+- `--java` (runtime executable path)
 - `--accept-eula`
 - `--property key=value` (repeatable, writes `server.properties`)
 
@@ -232,7 +232,7 @@ Required:
 
 Optional:
 
-- `--java`
+- `--java` (runtime executable path)
 - `--xms`
 - `--xmx`
 - `--jvm-arg` (repeatable)
@@ -284,7 +284,7 @@ For release validation, run real smoke installs on clean folders for each provid
 ## Operational Notes
 
 - `eula.txt` is always written by install. Use `--accept-eula` to set `eula=true`.
-- If your Java binary is not named `java`, pass `--java /path/to/java`.
+- If your runtime binary is not named `java`, pass `--java /path/to/runtime`.
 - Installers can be heavy on first run (especially Forge/NeoForge) due to dependency hydration.
 - Loader ecosystems evolve frequently. Keep pinned versions for production reproducibility.
 
@@ -298,12 +298,12 @@ Use a full interpreter path:
 C:\path\to\python.exe -m mcserverlib.cli loaders
 ```
 
-### Java mismatch errors
+### Runtime mismatch errors
 
-Install the required Java version and pass it explicitly:
+Install the required runtime version and pass it explicitly:
 
 ```bash
-python -m mcserverlib.cli install ... --java "C:\Program Files\Java\jdk-21\bin\java.exe"
+python -m mcserverlib.cli install ... --java "C:\path\to\java.exe"
 ```
 
 ### Installer exits non-zero
@@ -312,7 +312,7 @@ Common causes:
 
 - stale/broken partial install directory
 - transient network failure
-- blocked Maven endpoints
+- blocked metadata endpoints
 - wrong pinned loader version for selected Minecraft version
 
 Fix by clearing the target directory and reinstalling with explicit pinned versions.
