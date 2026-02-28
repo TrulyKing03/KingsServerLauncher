@@ -292,3 +292,8 @@ This implementation has been tested with live installs and startup/shutdown flow
 - NeoForge
 
 If you want to extend it with additional providers (for example, Pufferfish, Mohist, or custom private distributions), add a new provider under `mcserverlib/providers` and register it in `providers/__init__.py`.
+
+## License
+
+This project is proprietary and is provided under an "All Rights Reserved"
+license. See [LICENSE](LICENSE).
