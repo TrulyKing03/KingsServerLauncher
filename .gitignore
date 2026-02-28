@@ -1,0 +1,12 @@
+/target/
+/.idea/
+*.iml
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.venv/
+build/
+dist/
+*.egg-info/

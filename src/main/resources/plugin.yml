@@ -1,0 +1,23 @@
+name: BattlePass
+version: '${project.version}'
+main: com.battlepass.plugin.BattlePassPlugin
+api-version: '1.20'
+authors: [Codex]
+description: Fully customizable battle pass plugin
+
+commands:
+  battlepass:
+    description: Main battle pass command
+    aliases: [bp]
+    usage: /<command>
+
+permissions:
+  battlepass.use:
+    description: Allows opening the battle pass GUI
+    default: true
+  battlepass.admin:
+    description: Allows administrative battle pass commands
+    default: op
+  battlepass.premium:
+    description: Grants premium track access when permission mode is enabled
+    default: false

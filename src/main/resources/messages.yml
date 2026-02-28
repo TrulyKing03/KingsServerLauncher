@@ -1,0 +1,48 @@
+prefix: "&8[&bBattlePass&8] &r"
+
+players-only: "&cOnly players can use this command."
+no-permission: "&cYou do not have permission."
+unknown-command: "&cUnknown subcommand. Use /battlepass help"
+player-not-found: "&cPlayer '&f{player}&c' not found online."
+invalid-number: "&cInvalid number: &f{value}"
+invalid-boolean: "&cInvalid boolean: &f{value}&c (use true/false)"
+
+opened-for-player: "&aOpened battle pass for &f{player}&a at page &f{page}&a."
+reloaded: "&aBattle pass config reloaded."
+
+usage-xp: "&eUsage: /battlepass <addxp|setxp|removexp> <player> <amount>"
+usage-premium: "&eUsage: /battlepass premium <player> <true|false>"
+usage-claim: "&eUsage: /battlepass claim <tier> <free|premium>"
+
+xp-admin-updated: "&aUpdated &f{player}&a. New XP: &f{xp}&a."
+premium-set-admin: "&aSet premium for &f{player}&a to &f{value}&a."
+premium-set-player: "&aYour premium pass status is now: &f{value}&a."
+
+info-header: "&bBattle Pass info for &f{player}&b:"
+info-xp: "&7XP: &f{xp}"
+info-tier: "&7Tier: &f{tier}&7/&f{max_tier}"
+info-premium: "&7Premium: &f{premium}"
+
+tier-not-found: "&cTier &f{tier}&c does not exist."
+tier-locked: "&cTier &f{tier}&c is still locked."
+already-claimed: "&eYou already claimed the &f{track}&e reward for tier &f{tier}&e."
+premium-required: "&cYou need a premium pass for this reward."
+no-rewards: "&eNo reward commands configured for tier &f{tier}&e (&f{track}&e)."
+
+claim-all-none: "&eNo claimable &f{track}&e rewards on this page."
+claim-all-success: "&aClaimed &f{count}&a visible &f{track}&a rewards."
+
+claimed-free: "&aClaimed free reward for tier &f{tier}&a!"
+claimed-premium: "&6Claimed premium reward for tier &f{tier}&6!"
+
+xp-added: "&a+&f{amount}&a battle pass XP. Total: &f{xp}"
+xp-set: "&eBattle pass XP set to &f{amount}"
+xp-removed: "&c-&f{amount}&c battle pass XP. Total: &f{xp}"
+tier-up: "&bTier up! You are now tier &f{tier}&b."
+
+help-1: "&b/battlepass &7- Open your battle pass"
+help-2: "&b/battlepass info [player] &7- View progress"
+help-3: "&b/battlepass claim <tier> <free|premium> &7- Claim from command"
+help-4: "&b/battlepass addxp/setxp/removexp <player> <amount> &7- Admin XP control"
+help-5: "&b/battlepass premium <player> <true|false> &7- Toggle manual premium"
+help-6: "&b/battlepass reload &7- Reload config and tiers"
