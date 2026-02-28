@@ -1,4 +1,4 @@
-# mcserverinitalsetupall
+# KingsServerLauncher
 
 `mcserverlib` is a Python library and CLI for provisioning and running Minecraft servers across major server stacks from a single interface.
 
