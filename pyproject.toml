@@ -27,9 +27,12 @@ dependencies = []
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0.0"]
+build = ["pyinstaller>=6.11.0"]
 
 [project.scripts]
 mcserver = "mcserverlib.cli:main"
+mcserver-gui = "mcserverlib.gui_launcher:main"
+mcserver-build = "mcserverlib.build:main"
 
 [tool.setuptools]
 include-package-data = true

@@ -41,6 +41,45 @@ python -m pip install -e .[dev]
 
 If `python` is not on your PATH, use your full interpreter path instead.
 
+## One-Task Build (Windows EXE)
+
+Build a desktop launcher executable in one command:
+
+```bash
+python -m mcserverlib.build
+```
+
+Output:
+
+- `dist/KingsServerLauncher.exe`
+
+PowerShell wrapper (same result):
+
+```powershell
+.\build_launcher.ps1
+```
+
+## Desktop Launcher
+
+Run the GUI directly from Python:
+
+```bash
+python -m mcserverlib.cli gui
+```
+
+The launcher lets users:
+
+- choose and save the server storage folder before install/start
+- choose loader
+- choose Minecraft version from fetched metadata
+- optionally pin loader version/build
+- install server files
+- start/stop the server with live console logs
+- send in-game server console commands directly from the launcher UI
+- open Help links directly from the launcher:
+  - Discord: `https://discord.gg/AqUmRUshhK`
+  - Website: `https://TrulyKing.dev`
+
 ## Quick Start (CLI)
 
 List loaders:
@@ -206,17 +245,25 @@ Required:
 
 Prints the stored install manifest as JSON.
 
+### `gui`
+
+Opens the desktop launcher UI.
+
 ## Project Layout
 
 ```text
 mcserverlib/
+  build.py                # one-command PyInstaller build
+  catalog.py              # version catalog for launcher UI
   cli.py                  # command line entrypoint
+  gui_launcher.py         # desktop launcher
   manager.py              # high-level install/start API
   process.py              # process lifecycle and log streaming
   models.py               # dataclasses for requests/results/manifests
   http.py                 # network/download helper
   minecraft.py            # Mojang metadata helpers
   providers/              # per-loader installers/resolvers
+build_launcher.ps1        # Windows one-command build wrapper
 tests/
   test_*.py               # deterministic unit tests
 pyproject.toml

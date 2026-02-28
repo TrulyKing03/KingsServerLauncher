@@ -89,6 +89,12 @@ def _cmd_start(args: argparse.Namespace, manager: ServerManager) -> int:
         return 0
 
 
+def _cmd_gui() -> int:
+    from .gui_launcher import main as gui_main
+
+    return gui_main()
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="mcserver",
@@ -150,6 +156,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="Additional JVM argument (repeat for multiple).",
     )
 
+    sub.add_parser("gui", help="Open the desktop launcher GUI.")
+
     return parser
 
 
@@ -166,6 +174,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_manifest(args, manager)
     if args.command == "start":
         return _cmd_start(args, manager)
+    if args.command == "gui":
+        return _cmd_gui()
     parser.print_help()
     return 2
 
