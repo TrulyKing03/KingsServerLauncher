@@ -11,6 +11,7 @@ from .exceptions import ManifestError, VersionResolutionError
 from .models import ServerManifest
 
 MANIFEST_FILENAME = ".mcserverlib.json"
+DEFAULT_SERVER_PORT = 25565
 
 
 def normalize_loader(loader: str) -> str:
@@ -113,3 +114,37 @@ def write_server_properties(instance_dir: Path, properties: dict[str, str]) -> N
         "\n".join(lines) + "\n",
         encoding="utf-8",
     )
+
+
+def parse_properties_file(path: Path) -> dict[str, str]:
+    if not path.exists():
+        return {}
+
+    properties: dict[str, str] = {}
+    for raw_line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or line.startswith("!"):
+            continue
+        if "=" in line:
+            key, value = line.split("=", 1)
+        elif ":" in line:
+            key, value = line.split(":", 1)
+        else:
+            key, value = line, ""
+        properties[key.strip()] = value.strip()
+    return properties
+
+
+def read_server_endpoint(instance_dir: Path, default_port: int = DEFAULT_SERVER_PORT) -> tuple[str, int]:
+    properties_path = Path(instance_dir) / "server.properties"
+    properties = parse_properties_file(properties_path)
+
+    host = str(properties.get("server-ip", "")).strip()
+    port_text = str(properties.get("server-port", default_port)).strip()
+    try:
+        port = int(port_text)
+    except (TypeError, ValueError):
+        port = default_port
+    if port <= 0 or port > 65535:
+        port = default_port
+    return host, port

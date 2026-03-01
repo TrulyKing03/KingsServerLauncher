@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import json
 import queue
+import socket
 import threading
 import traceback
 import tkinter as tk
@@ -16,11 +17,13 @@ try:
     from .manager import ServerManager
     from .models import InstallRequest, InstallResult
     from .process import ServerProcess
+    from .utils import read_server_endpoint
 except ImportError:  # pragma: no cover - fallback for direct/frozen entry
     from mcserverlib.catalog import VersionCatalog
     from mcserverlib.manager import ServerManager
     from mcserverlib.models import InstallRequest, InstallResult
     from mcserverlib.process import ServerProcess
+    from mcserverlib.utils import read_server_endpoint
 
 DISCORD_URL = "https://discord.gg/AqUmRUshhK"
 WEBSITE_URL = "https://TrulyKing.dev"
@@ -54,6 +57,7 @@ class LauncherApp(tk.Tk):
         self.xmx_var = tk.StringVar(value="4G")
         self.console_command_var = tk.StringVar(value="")
         self.status_var = tk.StringVar(value="Ready")
+        self.server_endpoint_var = tk.StringVar(value="Server Address: Choose a folder")
 
         self._configure_style()
         self._build_menu()
@@ -61,6 +65,7 @@ class LauncherApp(tk.Tk):
         self._bind_events()
         self._sync_optional_fields()
         self._update_console_controls()
+        self._refresh_server_endpoint()
         self._enqueue_log(
             "Welcome to KingsServerLauncher. Choose your folder, loader, and version."
         )
@@ -394,8 +399,11 @@ class LauncherApp(tk.Tk):
         ttk.Label(right_top, textvariable=self.status_var, style="Status.TLabel").grid(
             row=0, column=0, sticky="w"
         )
+        ttk.Label(right_top, textvariable=self.server_endpoint_var, style="Meta.TLabel").grid(
+            row=1, column=0, sticky="w", pady=(4, 0)
+        )
         self.progress = ttk.Progressbar(right_top, mode="indeterminate")
-        self.progress.grid(row=1, column=0, sticky="ew", pady=(8, 0))
+        self.progress.grid(row=2, column=0, sticky="ew", pady=(8, 0))
 
         right = ttk.Frame(body, style="Card.TFrame", padding=14)
         right.grid(row=1, column=1, sticky="nsew", padx=(10, 0), pady=(10, 0))
@@ -443,6 +451,10 @@ class LauncherApp(tk.Tk):
         self.loader_combo.bind("<<ComboboxSelected>>", self._on_loader_changed)
         self.mc_version_combo.bind("<<ComboboxSelected>>", self._on_minecraft_version_changed)
         self.console_entry.bind("<Return>", self._send_console_command)
+        self.instance_dir_var.trace_add("write", self._on_instance_dir_changed)
+
+    def _on_instance_dir_changed(self, *_args: object) -> None:
+        self._refresh_server_endpoint()
 
     def _open_discord(self) -> None:
         self._open_url(DISCORD_URL)
@@ -494,6 +506,7 @@ class LauncherApp(tk.Tk):
             self.instance_dir_var.set(selected)
             self._storage_selected = True
             self._save_settings()
+            self._refresh_server_endpoint()
 
     def _ensure_storage_selected_on_startup(self) -> None:
         if self._storage_selected:
@@ -524,6 +537,7 @@ class LauncherApp(tk.Tk):
         self._storage_selected = True
         self._save_settings()
         self._enqueue_log(f"Server storage folder set to: {selected}")
+        self._refresh_server_endpoint()
         return True
 
     def _open_instance_dir(self) -> None:
@@ -714,6 +728,7 @@ class LauncherApp(tk.Tk):
                     f"at {install_result.instance_dir}"
                 )
             self._set_status("Install completed.")
+            self._refresh_server_endpoint()
             self.progress.stop()
             self._set_controls_enabled(True)
             return
@@ -785,6 +800,54 @@ class LauncherApp(tk.Tk):
 
     def _set_status(self, status: str) -> None:
         self.status_var.set(status)
+
+    def _refresh_server_endpoint(self) -> None:
+        instance_value = self.instance_dir_var.get().strip()
+        if not instance_value:
+            self.server_endpoint_var.set("Server Address: Choose a folder")
+            return
+
+        instance_dir = Path(instance_value).resolve()
+        properties_path = instance_dir / "server.properties"
+        if not properties_path.exists():
+            self.server_endpoint_var.set("Server Address: Pending (server.properties not found)")
+            return
+
+        configured_host, port = read_server_endpoint(instance_dir)
+        if configured_host:
+            endpoint = self._format_host_port(configured_host, port)
+            self.server_endpoint_var.set(f"Server Address: {endpoint}")
+            return
+
+        detected_host = self._detect_lan_ip() or "0.0.0.0"
+        endpoint = self._format_host_port(detected_host, port)
+        self.server_endpoint_var.set(
+            f"Server Address: {endpoint} (server-ip is empty, using LAN/default)"
+        )
+
+    @staticmethod
+    def _detect_lan_ip() -> str | None:
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+                probe.connect(("8.8.8.8", 80))
+                candidate = probe.getsockname()[0].strip()
+                if candidate and not candidate.startswith("127."):
+                    return candidate
+        except OSError:
+            pass
+        try:
+            fallback = socket.gethostbyname(socket.gethostname()).strip()
+            if fallback and not fallback.startswith("127."):
+                return fallback
+        except OSError:
+            pass
+        return None
+
+    @staticmethod
+    def _format_host_port(host: str, port: int) -> str:
+        if ":" in host and not host.startswith("["):
+            return f"[{host}]:{port}"
+        return f"{host}:{port}"
 
     def _load_saved_instance_dir(self) -> str:
         payload = self._load_settings()
