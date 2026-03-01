@@ -72,7 +72,11 @@ class LauncherApp(tk.Tk):
         self.xmx_var = tk.StringVar(value="4G")
         self.console_command_var = tk.StringVar(value="")
         self.status_var = tk.StringVar(value="Ready")
-        self.server_endpoint_var = tk.StringVar(value="Server Address: Choose a folder")
+        self.server_endpoint_var = tk.StringVar(value="Choose a folder")
+        self.console_state_var = tk.StringVar(value="Offline")
+        self._controls_busy = False
+        self._command_placeholder = "Type a command..."
+        self._command_placeholder_active = False
         self._logo_image: tk.PhotoImage | None = None
         self._window_icon_image: tk.PhotoImage | None = None
 
@@ -84,6 +88,7 @@ class LauncherApp(tk.Tk):
         self._bind_events()
         self._sync_optional_fields()
         self._update_console_controls()
+        self._update_runtime_controls()
         self._refresh_server_endpoint()
         self._enqueue_log(
             "Welcome to KingsServerLauncher. Choose your folder, loader, and version."
@@ -103,173 +108,252 @@ class LauncherApp(tk.Tk):
                 break
 
         available_fonts = set(tkfont.families(self))
-        base_font = "Segoe UI" if "Segoe UI" in available_fonts else "TkDefaultFont"
-        mono_font = "Cascadia Code" if "Cascadia Code" in available_fonts else "Consolas"
+        for candidate in ("Inter", "Segoe UI Variable Text", "Segoe UI"):
+            if candidate in available_fonts:
+                base_font = candidate
+                break
+        else:
+            base_font = "TkDefaultFont"
+        mono_font = "JetBrains Mono" if "JetBrains Mono" in available_fonts else "Cascadia Code"
         if mono_font not in available_fonts:
-            mono_font = "TkFixedFont"
-        semibold_font = "Segoe UI Semibold" if "Segoe UI Semibold" in available_fonts else base_font
-        title_font = "Bahnschrift SemiBold" if "Bahnschrift SemiBold" in available_fonts else semibold_font
+            mono_font = "Consolas" if "Consolas" in available_fonts else "TkFixedFont"
+        semibold_font = (
+            "Inter SemiBold"
+            if "Inter SemiBold" in available_fonts
+            else ("Segoe UI Semibold" if "Segoe UI Semibold" in available_fonts else base_font)
+        )
+        title_font = (
+            "Inter SemiBold"
+            if "Inter SemiBold" in available_fonts
+            else ("Segoe UI Semibold" if "Segoe UI Semibold" in available_fonts else base_font)
+        )
 
         self.option_add("*Font", f"{{{base_font}}} 10")
         self._mono_font = mono_font
-        app_bg = "#070D1B"
-        panel_bg = "#0F1B33"
-        accent_bg = "#0B1329"
-        input_bg = "#121E3B"
-        text_primary = "#E5EEFF"
-        text_secondary = "#9AB0D4"
 
-        self.configure(bg=app_bg)
+        self._colors = {
+            "app_bg": "#080D18",
+            "header_bg": "#0E1528",
+            "card_bg": "#10192C",
+            "input_bg": "#131F35",
+            "console_bg": "#0B0F17",
+            "text_primary": "#EAF1FF",
+            "text_secondary": "#A2B2D2",
+            "text_muted": "#7D8DAF",
+            "accent": "#3C7BFF",
+            "accent_hover": "#4D89FF",
+            "accent_pressed": "#2F67DD",
+            "danger": "#D84F5B",
+            "danger_hover": "#E0636E",
+            "danger_pressed": "#B8404A",
+            "neutral": "#1A2641",
+            "neutral_hover": "#213152",
+            "neutral_pressed": "#17253F",
+            "banner_bg": "#2A1217",
+            "banner_fg": "#FF7A86",
+            "progress_trough": "#0E1628",
+            "progress_fill": "#4D93FF",
+            "state_online": "#3FC272",
+            "state_offline": "#6A7794",
+        }
+        colors = self._colors
 
-        style.configure("App.TFrame", background=app_bg)
-        style.configure("Card.TFrame", background=panel_bg, relief="flat")
-        style.configure("Accent.TFrame", background=accent_bg, relief="flat")
-        style.configure("Logo.TLabel", background=accent_bg)
+        self.configure(bg=colors["app_bg"])
+
+        style.configure("App.TFrame", background=colors["app_bg"])
+        style.configure("HeaderCard.TFrame", background=colors["header_bg"], relief="flat")
+        style.configure("Card.TFrame", background=colors["card_bg"], relief="flat")
+        style.configure("Banner.TFrame", background=colors["banner_bg"], relief="flat")
+        style.configure("Logo.TLabel", background=colors["header_bg"])
         style.configure(
-            "Header.TLabel",
-            background=accent_bg,
-            foreground="#F8FBFF",
-            font=(title_font, 17),
+            "HeaderTitle.TLabel",
+            background=colors["header_bg"],
+            foreground=colors["text_primary"],
+            font=(title_font, 19),
         )
         style.configure(
-            "SubHeader.TLabel",
-            background=accent_bg,
-            foreground="#AFC3E8",
-            font=(base_font, 9),
+            "HeaderSub.TLabel",
+            background=colors["header_bg"],
+            foreground=colors["text_secondary"],
+            font=(base_font, 11),
         )
         style.configure(
-            "Notice.TLabel",
-            background=accent_bg,
-            foreground="#FF6A6A",
-            font=(semibold_font, 9),
-        )
-        style.configure(
-            "FieldLabel.TLabel",
-            background=panel_bg,
-            foreground=text_primary,
+            "Banner.TLabel",
+            background=colors["banner_bg"],
+            foreground=colors["banner_fg"],
             font=(semibold_font, 10),
         )
         style.configure(
-            "Status.TLabel",
-            background=panel_bg,
-            foreground="#D8E5FF",
+            "CardTitle.TLabel",
+            background=colors["card_bg"],
+            foreground=colors["text_primary"],
+            font=(semibold_font, 15),
+        )
+        style.configure(
+            "CardSub.TLabel",
+            background=colors["card_bg"],
+            foreground=colors["text_secondary"],
+            font=(base_font, 12),
+        )
+        style.configure(
+            "FieldLabel.TLabel",
+            background=colors["card_bg"],
+            foreground=colors["text_primary"],
             font=(semibold_font, 10),
         )
         style.configure(
             "Meta.TLabel",
-            background=panel_bg,
-            foreground=text_secondary,
+            background=colors["card_bg"],
+            foreground=colors["text_secondary"],
             font=(base_font, 9),
         )
         style.configure(
-            "TEntry",
-            fieldbackground=input_bg,
-            foreground=text_primary,
-            borderwidth=1,
-            relief="solid",
-            padding=(10, 7),
-        )
-        style.map(
-            "TEntry",
-            fieldbackground=[("readonly", "#15274B"), ("disabled", "#0F1A31")],
-            foreground=[("disabled", "#6178A4")],
+            "StatusKey.TLabel",
+            background=colors["card_bg"],
+            foreground=colors["text_muted"],
+            font=(semibold_font, 11),
         )
         style.configure(
-            "TCombobox",
-            fieldbackground=input_bg,
-            foreground=text_primary,
+            "StatusValue.TLabel",
+            background=colors["card_bg"],
+            foreground=colors["text_primary"],
+            font=(base_font, 11),
+        )
+        style.configure(
+            "ConsoleState.TLabel",
+            background=colors["card_bg"],
+            foreground=colors["text_secondary"],
+            font=(semibold_font, 10),
+        )
+        style.configure(
+            "Input.TEntry",
+            fieldbackground=colors["input_bg"],
+            foreground=colors["text_primary"],
+            borderwidth=0,
+            relief="flat",
+            padding=(12, 9),
+        )
+        style.map(
+            "Input.TEntry",
+            fieldbackground=[
+                ("focus", "#1A2A46"),
+                ("readonly", "#17253E"),
+                ("disabled", "#121A2C"),
+            ],
+            foreground=[("disabled", "#6D7C9A")],
+        )
+        style.configure(
+            "Placeholder.TEntry",
+            fieldbackground=colors["input_bg"],
+            foreground=colors["text_muted"],
+            borderwidth=0,
+            relief="flat",
+            padding=(12, 9),
+        )
+        style.configure(
+            "Input.TCombobox",
+            fieldbackground=colors["input_bg"],
+            foreground=colors["text_primary"],
             arrowsize=16,
-            borderwidth=1,
-            padding=(10, 7),
+            borderwidth=0,
+            relief="flat",
+            padding=(12, 9),
         )
         style.map(
-            "TCombobox",
-            fieldbackground=[("readonly", "#15274B"), ("disabled", "#0F1A31")],
-            foreground=[("readonly", text_primary), ("disabled", "#6178A4")],
+            "Input.TCombobox",
+            fieldbackground=[
+                ("readonly", "#17253E"),
+                ("focus", "#1A2A46"),
+                ("disabled", "#121A2C"),
+            ],
+            foreground=[("readonly", colors["text_primary"]), ("disabled", "#6D7C9A")],
         )
         style.configure(
             "Primary.TButton",
             font=(semibold_font, 10),
-            padding=(12, 8),
-            background="#2B74FF",
+            padding=(12, 10),
+            background=colors["accent"],
             foreground="#FFFFFF",
             borderwidth=0,
         )
         style.map(
             "Primary.TButton",
-            background=[("active", "#2365E6"), ("disabled", "#223151")],
-            foreground=[("disabled", "#87A1CC")],
+            background=[
+                ("pressed", colors["accent_pressed"]),
+                ("active", colors["accent_hover"]),
+                ("disabled", "#27314C"),
+            ],
+            foreground=[("disabled", "#8FA1C5")],
         )
         style.configure(
             "Secondary.TButton",
-            font=(semibold_font, 9),
-            padding=(10, 7),
-            background="#1C2A48",
-            foreground="#D4E2FF",
+            font=(semibold_font, 10),
+            padding=(12, 10),
+            background=colors["neutral"],
+            foreground=colors["text_primary"],
             borderwidth=0,
         )
         style.map(
             "Secondary.TButton",
-            background=[("active", "#25375D"), ("disabled", "#1A243E")],
-            foreground=[("disabled", "#6A80A8")],
+            background=[
+                ("pressed", colors["neutral_pressed"]),
+                ("active", colors["neutral_hover"]),
+                ("disabled", "#1C263D"),
+            ],
+            foreground=[("disabled", "#7486AB")],
         )
         style.configure(
-            "Action.TButton",
+            "Danger.TButton",
             font=(semibold_font, 10),
-            padding=(12, 8),
-            background="#1FAF64",
+            padding=(12, 10),
+            background=colors["danger"],
             foreground="#FFFFFF",
             borderwidth=0,
         )
         style.map(
-            "Action.TButton",
-            background=[("active", "#17884D"), ("disabled", "#223151")],
-            foreground=[("disabled", "#87A1CC")],
+            "Danger.TButton",
+            background=[
+                ("pressed", colors["danger_pressed"]),
+                ("active", colors["danger_hover"]),
+                ("disabled", "#3B2A35"),
+            ],
+            foreground=[("disabled", "#B6979E")],
         )
         style.configure(
-            "Warn.TButton",
+            "Link.TButton",
             font=(semibold_font, 10),
-            padding=(12, 8),
-            background="#D84B55",
-            foreground="#FFFFFF",
+            padding=(12, 9),
+            background=colors["neutral"],
+            foreground=colors["text_primary"],
             borderwidth=0,
         )
         style.map(
-            "Warn.TButton",
-            background=[("active", "#B53A44"), ("disabled", "#223151")],
-            foreground=[("disabled", "#87A1CC")],
-        )
-        style.configure(
             "Link.TButton",
-            font=(semibold_font, 9),
-            padding=(10, 6),
-            background="#1A2C54",
-            foreground="#E5EEFF",
-            borderwidth=1,
-        )
-        style.map(
-            "Link.TButton",
-            background=[("active", "#223B6E"), ("disabled", "#1A243E")],
-            foreground=[("disabled", "#7A90B8")],
+            background=[
+                ("pressed", colors["neutral_pressed"]),
+                ("active", colors["neutral_hover"]),
+                ("disabled", "#1C263D"),
+            ],
+            foreground=[("disabled", "#7486AB")],
         )
         style.configure(
             "TCheckbutton",
-            background=panel_bg,
-            foreground=text_primary,
+            background=colors["card_bg"],
+            foreground=colors["text_primary"],
             font=(base_font, 10),
         )
         style.map(
             "TCheckbutton",
-            background=[("active", panel_bg), ("disabled", panel_bg)],
+            background=[("active", colors["card_bg"]), ("disabled", colors["card_bg"])],
             foreground=[("disabled", "#6A80A8")],
         )
         style.configure(
             "Launch.Horizontal.TProgressbar",
-            troughcolor="#0A1530",
-            background="#4EA0FF",
-            lightcolor="#6CB4FF",
-            darkcolor="#327CE5",
-            bordercolor="#0A1530",
+            troughcolor=colors["progress_trough"],
+            background=colors["progress_fill"],
+            lightcolor=colors["progress_fill"],
+            darkcolor=colors["progress_fill"],
+            bordercolor=colors["progress_trough"],
         )
 
     @staticmethod
@@ -310,7 +394,7 @@ class LauncherApp(tk.Tk):
     def _load_brand_assets(self) -> None:
         logo_path = self._resolve_brand_asset(LOGO_CANDIDATE_NAMES)
         if logo_path:
-            self._logo_image = self._load_scaled_photo(logo_path, max_width=110)
+            self._logo_image = self._load_scaled_photo(logo_path, max_width=84)
 
         icon_path = self._resolve_brand_asset(ICON_CANDIDATE_NAMES)
         if not icon_path:
@@ -337,98 +421,129 @@ class LauncherApp(tk.Tk):
         self.configure(menu=menu)
 
     def _build_ui(self) -> None:
-        root = ttk.Frame(self, style="App.TFrame", padding=12)
+        outer_padding = 24
+        card_padding = 24
+        section_gap = 16
+        row_gap = 8
+        col_gap = 12
+
+        root = ttk.Frame(self, style="App.TFrame", padding=(outer_padding, outer_padding))
         root.pack(fill=tk.BOTH, expand=True)
         root.columnconfigure(0, weight=1)
-        root.rowconfigure(1, weight=1)
+        root.rowconfigure(2, weight=1)
 
-        banner = ttk.Frame(root, style="Accent.TFrame", padding=(14, 10))
-        banner.grid(row=0, column=0, sticky="ew")
-        text_col = 0
+        header = ttk.Frame(root, style="HeaderCard.TFrame", padding=card_padding)
+        header.grid(row=0, column=0, sticky="ew")
+        header.columnconfigure(1, weight=1)
+        text_col = 1
         if self._logo_image is not None:
-            ttk.Label(banner, image=self._logo_image, style="Logo.TLabel").grid(
+            ttk.Label(header, image=self._logo_image, style="Logo.TLabel").grid(
                 row=0,
                 column=0,
                 rowspan=2,
                 sticky="w",
-                padx=(0, 10),
+                padx=(0, section_gap),
             )
-            text_col = 1
-        banner.columnconfigure(text_col, weight=1)
-        ttk.Label(banner, text="KingsServerLauncher", style="Header.TLabel").grid(
-            row=0, column=text_col, sticky="w"
+        else:
+            text_col = 0
+        ttk.Label(header, text="KingsServerLauncher", style="HeaderTitle.TLabel").grid(
+            row=0,
+            column=text_col,
+            sticky="w",
         )
         ttk.Label(
-            banner,
-            text="Launch, install, and control Minecraft servers from one sleek control center",
-            style="SubHeader.TLabel",
-        ).grid(row=1, column=text_col, sticky="w")
+            header,
+            text="Launch, install, and control Minecraft servers from one client dashboard.",
+            style="HeaderSub.TLabel",
+        ).grid(row=1, column=text_col, sticky="w", pady=(6, 0))
+
+        links = ttk.Frame(header, style="HeaderCard.TFrame")
+        links.grid(row=0, column=text_col + 1, rowspan=2, sticky="e", padx=(section_gap, 0))
+        self.discord_btn = ttk.Button(
+            links,
+            text="Discord",
+            style="Link.TButton",
+            command=self._open_discord,
+        )
+        self.discord_btn.grid(row=0, column=0, sticky="ew", padx=(0, col_gap))
+        self.website_btn = ttk.Button(
+            links,
+            text="Website",
+            style="Link.TButton",
+            command=self._open_website,
+        )
+        self.website_btn.grid(row=0, column=1, sticky="ew")
+
+        banner = ttk.Frame(root, style="Banner.TFrame", padding=(16, 10))
+        banner.grid(row=1, column=0, sticky="ew", pady=(12, 0))
         ttk.Label(
             banner,
             text="Whitelist is ON by default after install. Turn it off and save in server.properties if needed.",
-            style="Notice.TLabel",
-        ).grid(row=2, column=text_col, sticky="w", pady=(4, 0))
-        link_row = ttk.Frame(banner, style="Accent.TFrame")
-        link_row.grid(row=0, column=text_col + 1, rowspan=3, sticky="e")
-        ttk.Button(link_row, text="Discord", style="Link.TButton", command=self._open_discord).grid(
-            row=0, column=0, padx=(0, 8)
-        )
-        ttk.Button(link_row, text="Website", style="Link.TButton", command=self._open_website).grid(
-            row=0, column=1
-        )
+            style="Banner.TLabel",
+        ).grid(row=0, column=0, sticky="w")
 
         body = ttk.Frame(root, style="App.TFrame")
-        body.grid(row=1, column=0, sticky="nsew", pady=(10, 0))
+        body.grid(row=2, column=0, sticky="nsew", pady=(section_gap, 0))
         body.columnconfigure(0, weight=11)
-        body.columnconfigure(1, weight=14)
+        body.columnconfigure(1, weight=12)
         body.rowconfigure(1, weight=1)
 
-        left = ttk.Frame(body, style="Card.TFrame", padding=14)
-        left.grid(row=0, column=0, rowspan=2, sticky="nsew", padx=(0, 10))
+        left = ttk.Frame(body, style="Card.TFrame", padding=card_padding)
+        left.grid(row=0, column=0, rowspan=2, sticky="nsew", padx=(0, section_gap))
+        left.columnconfigure(0, weight=1)
         left.columnconfigure(1, weight=1)
 
         row = 0
-        ttk.Label(left, text="Server Setup", style="FieldLabel.TLabel").grid(
+        ttk.Label(left, text="Server Setup", style="CardTitle.TLabel").grid(
             row=row, column=0, columnspan=2, sticky="w"
         )
         row += 1
         ttk.Label(
             left,
             text="Pick storage, loader, version, and runtime settings.",
-            style="Meta.TLabel",
-        ).grid(row=row, column=0, columnspan=2, sticky="w", pady=(2, 10))
+            style="CardSub.TLabel",
+        ).grid(row=row, column=0, columnspan=2, sticky="w", pady=(6, section_gap))
 
         row += 1
         ttk.Label(left, text="Server Storage", style="FieldLabel.TLabel").grid(
-            row=row, column=0, columnspan=2, sticky="w"
+            row=row, column=0, columnspan=2, sticky="w", pady=(0, 6)
         )
         row += 1
-        ttk.Entry(left, textvariable=self.instance_dir_var).grid(
-            row=row, column=0, sticky="ew", pady=(6, 8)
-        )
-        ttk.Button(
+        self.instance_dir_entry = ttk.Entry(left, textvariable=self.instance_dir_var, style="Input.TEntry")
+        self.instance_dir_entry.grid(row=row, column=0, sticky="ew")
+        self.browse_folder_btn = ttk.Button(
             left,
             text="Choose Folder",
             style="Secondary.TButton",
             command=self._browse_instance_dir,
-        ).grid(row=row, column=1, sticky="ew", padx=(8, 0), pady=(6, 8))
+        )
+        self.browse_folder_btn.grid(row=row, column=1, sticky="ew", padx=(col_gap, 0))
 
         row += 1
-        ttk.Label(left, text="Loader", style="FieldLabel.TLabel").grid(row=row, column=0, sticky="w")
+        ttk.Label(left, text="Loader", style="FieldLabel.TLabel").grid(
+            row=row, column=0, sticky="w", pady=(section_gap, 6)
+        )
         ttk.Label(left, text="Minecraft Version", style="FieldLabel.TLabel").grid(
-            row=row, column=1, sticky="w", padx=(8, 0)
+            row=row, column=1, sticky="w", padx=(col_gap, 0), pady=(section_gap, 6)
         )
         row += 1
         self.loader_combo = ttk.Combobox(
             left,
             textvariable=self.loader_var,
             values=list(self.manager.supported_loaders),
+            style="Input.TCombobox",
             state="readonly",
             width=20,
         )
-        self.loader_combo.grid(row=row, column=0, sticky="ew", pady=(6, 8))
-        self.mc_version_combo = ttk.Combobox(left, textvariable=self.mc_version_var, values=["latest"])
-        self.mc_version_combo.grid(row=row, column=1, sticky="ew", padx=(8, 0), pady=(6, 8))
+        self.loader_combo.grid(row=row, column=0, sticky="ew")
+        self.mc_version_combo = ttk.Combobox(
+            left,
+            textvariable=self.mc_version_var,
+            values=["latest"],
+            style="Input.TCombobox",
+            state="readonly",
+        )
+        self.mc_version_combo.grid(row=row, column=1, sticky="ew", padx=(col_gap, 0))
 
         row += 1
         self.refresh_versions_btn = ttk.Button(
@@ -437,20 +552,30 @@ class LauncherApp(tk.Tk):
             style="Secondary.TButton",
             command=self._refresh_versions,
         )
-        self.refresh_versions_btn.grid(row=row, column=0, columnspan=2, sticky="ew")
+        self.refresh_versions_btn.grid(
+            row=row,
+            column=0,
+            columnspan=2,
+            sticky="ew",
+            pady=(row_gap, 0),
+        )
 
         row += 1
         ttk.Label(left, text="Loader Version (Optional)", style="FieldLabel.TLabel").grid(
-            row=row, column=0, sticky="w", pady=(10, 0)
+            row=row, column=0, sticky="w", pady=(section_gap, 6)
         )
         ttk.Label(left, text="Build (Optional)", style="FieldLabel.TLabel").grid(
-            row=row, column=1, sticky="w", padx=(8, 0), pady=(10, 0)
+            row=row, column=1, sticky="w", padx=(col_gap, 0), pady=(section_gap, 6)
         )
         row += 1
-        self.loader_version_combo = ttk.Combobox(left, textvariable=self.loader_version_var)
-        self.loader_version_combo.grid(row=row, column=0, sticky="ew", pady=(6, 8))
-        self.build_entry = ttk.Entry(left, textvariable=self.build_var)
-        self.build_entry.grid(row=row, column=1, sticky="ew", padx=(8, 0), pady=(6, 8))
+        self.loader_version_combo = ttk.Combobox(
+            left,
+            textvariable=self.loader_version_var,
+            style="Input.TCombobox",
+        )
+        self.loader_version_combo.grid(row=row, column=0, sticky="ew")
+        self.build_entry = ttk.Entry(left, textvariable=self.build_var, style="Input.TEntry")
+        self.build_entry.grid(row=row, column=1, sticky="ew", padx=(col_gap, 0))
 
         row += 1
         self.refresh_loader_versions_btn = ttk.Button(
@@ -459,124 +584,211 @@ class LauncherApp(tk.Tk):
             style="Secondary.TButton",
             command=self._refresh_loader_versions,
         )
-        self.refresh_loader_versions_btn.grid(row=row, column=0, columnspan=2, sticky="ew")
+        self.refresh_loader_versions_btn.grid(
+            row=row,
+            column=0,
+            columnspan=2,
+            sticky="ew",
+            pady=(row_gap, 0),
+        )
 
         row += 1
         ttk.Label(left, text="Java Path", style="FieldLabel.TLabel").grid(
-            row=row, column=0, columnspan=2, sticky="w", pady=(10, 0)
+            row=row, column=0, columnspan=2, sticky="w", pady=(section_gap, 6)
         )
         row += 1
-        ttk.Entry(left, textvariable=self.java_path_var).grid(
-            row=row, column=0, columnspan=2, sticky="ew", pady=(6, 8)
-        )
+        self.java_path_entry = ttk.Entry(left, textvariable=self.java_path_var, style="Input.TEntry")
+        self.java_path_entry.grid(row=row, column=0, columnspan=2, sticky="ew")
 
         row += 1
         memory = ttk.Frame(left, style="Card.TFrame")
-        memory.grid(row=row, column=0, columnspan=2, sticky="ew")
+        memory.grid(row=row, column=0, columnspan=2, sticky="ew", pady=(section_gap, 0))
+        memory.columnconfigure(1, weight=1)
+        memory.columnconfigure(3, weight=1)
         ttk.Label(memory, text="Xms", style="FieldLabel.TLabel").grid(row=0, column=0, sticky="w")
-        ttk.Entry(memory, textvariable=self.xms_var, width=12).grid(row=0, column=1, padx=(8, 24))
+        self.xms_entry = ttk.Entry(memory, textvariable=self.xms_var, style="Input.TEntry", width=12)
+        self.xms_entry.grid(row=0, column=1, sticky="ew", padx=(8, 20))
         ttk.Label(memory, text="Xmx", style="FieldLabel.TLabel").grid(row=0, column=2, sticky="w")
-        ttk.Entry(memory, textvariable=self.xmx_var, width=12).grid(row=0, column=3, padx=(8, 0))
+        self.xmx_entry = ttk.Entry(memory, textvariable=self.xmx_var, style="Input.TEntry", width=12)
+        self.xmx_entry.grid(row=0, column=3, sticky="ew", padx=(8, 0))
 
         row += 1
-        ttk.Checkbutton(left, text="Accept EULA", variable=self.accept_eula_var).grid(
-            row=row, column=0, columnspan=2, sticky="w", pady=(10, 0)
+        self.accept_eula_checkbox = ttk.Checkbutton(
+            left,
+            text="Accept EULA",
+            variable=self.accept_eula_var,
+        )
+        self.accept_eula_checkbox.grid(
+            row=row,
+            column=0,
+            columnspan=2,
+            sticky="w",
+            pady=(section_gap, 0),
         )
 
         row += 1
         actions = ttk.Frame(left, style="Card.TFrame")
-        actions.grid(row=row, column=0, columnspan=2, sticky="ew", pady=(12, 0))
+        actions.grid(row=row, column=0, columnspan=2, sticky="ew", pady=(section_gap, 0))
         actions.columnconfigure(0, weight=1)
         actions.columnconfigure(1, weight=1)
         actions.columnconfigure(2, weight=1)
-        self.install_btn = ttk.Button(actions, text="Install", style="Primary.TButton", command=self._install)
+        self.install_btn = ttk.Button(
+            actions,
+            text="Install",
+            style="Secondary.TButton",
+            command=self._install,
+        )
         self.install_btn.grid(row=0, column=0, sticky="ew", padx=(0, 6))
-        self.start_btn = ttk.Button(actions, text="Start", style="Action.TButton", command=self._start)
+        self.start_btn = ttk.Button(actions, text="Start", style="Primary.TButton", command=self._start)
         self.start_btn.grid(row=0, column=1, sticky="ew", padx=6)
-        self.stop_btn = ttk.Button(actions, text="Stop", style="Warn.TButton", command=self._stop)
+        self.stop_btn = ttk.Button(actions, text="Stop", style="Danger.TButton", command=self._stop)
         self.stop_btn.grid(row=0, column=2, sticky="ew", padx=(6, 0))
 
         row += 1
         util_row = ttk.Frame(left, style="Card.TFrame")
-        util_row.grid(row=row, column=0, columnspan=2, sticky="ew", pady=(8, 0))
+        util_row.grid(row=row, column=0, columnspan=2, sticky="ew", pady=(row_gap, 0))
         util_row.columnconfigure(0, weight=1)
         util_row.columnconfigure(1, weight=1)
-        ttk.Button(
+        self.open_folder_btn = ttk.Button(
             util_row,
             text="Open Folder",
             style="Secondary.TButton",
             command=self._open_instance_dir,
-        ).grid(row=0, column=0, sticky="ew", padx=(0, 6))
-        ttk.Button(
+        )
+        self.open_folder_btn.grid(row=0, column=0, sticky="ew", padx=(0, 6))
+        self.clear_log_btn = ttk.Button(
             util_row,
             text="Clear Log",
             style="Secondary.TButton",
             command=self._clear_log,
-        ).grid(row=0, column=1, sticky="ew", padx=(6, 0))
+        )
+        self.clear_log_btn.grid(row=0, column=1, sticky="ew", padx=(6, 0))
 
-        right_top = ttk.Frame(body, style="Card.TFrame", padding=14)
-        right_top.grid(row=0, column=1, sticky="ew", padx=(10, 0))
-        right_top.columnconfigure(0, weight=1)
-        ttk.Label(right_top, textvariable=self.status_var, style="Status.TLabel").grid(
-            row=0, column=0, sticky="w"
+        status_card = ttk.Frame(body, style="Card.TFrame", padding=card_padding)
+        status_card.grid(row=0, column=1, sticky="ew")
+        status_card.columnconfigure(0, weight=1)
+        ttk.Label(status_card, text="Status", style="CardTitle.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(
+            status_card,
+            text="Install and runtime state for the selected server.",
+            style="CardSub.TLabel",
+        ).grid(row=1, column=0, sticky="w", pady=(6, section_gap))
+
+        status_grid = ttk.Frame(status_card, style="Card.TFrame")
+        status_grid.grid(row=2, column=0, sticky="ew")
+        status_grid.columnconfigure(1, weight=1)
+        ttk.Label(status_grid, text="Status", style="StatusKey.TLabel").grid(
+            row=0, column=0, sticky="w", padx=(0, col_gap)
         )
-        ttk.Label(right_top, textvariable=self.server_endpoint_var, style="Meta.TLabel").grid(
-            row=1, column=0, sticky="w", pady=(4, 0)
+        ttk.Label(status_grid, textvariable=self.status_var, style="StatusValue.TLabel").grid(
+            row=0, column=1, sticky="w"
         )
+        ttk.Label(status_grid, text="Address", style="StatusKey.TLabel").grid(
+            row=1, column=0, sticky="w", padx=(0, col_gap), pady=(8, 0)
+        )
+        ttk.Label(status_grid, textvariable=self.server_endpoint_var, style="StatusValue.TLabel").grid(
+            row=1, column=1, sticky="w", pady=(8, 0)
+        )
+
         self.progress = ttk.Progressbar(
-            right_top,
+            status_card,
             mode="indeterminate",
             style="Launch.Horizontal.TProgressbar",
         )
-        self.progress.grid(row=2, column=0, sticky="ew", pady=(8, 0))
+        self.progress.grid(row=3, column=0, sticky="ew", pady=(section_gap, 0), ipady=1)
 
-        right = ttk.Frame(body, style="Card.TFrame", padding=14)
-        right.grid(row=1, column=1, sticky="nsew", padx=(10, 0), pady=(10, 0))
-        right.columnconfigure(0, weight=1)
-        right.rowconfigure(2, weight=1)
-        ttk.Label(right, text="Server Console", style="FieldLabel.TLabel").grid(row=0, column=0, sticky="w")
+        console_card = ttk.Frame(body, style="Card.TFrame", padding=card_padding)
+        console_card.grid(row=1, column=1, sticky="nsew", pady=(section_gap, 0))
+        console_card.columnconfigure(0, weight=1)
+        console_card.rowconfigure(2, weight=1)
+
+        console_header = ttk.Frame(console_card, style="Card.TFrame")
+        console_header.grid(row=0, column=0, sticky="ew")
+        console_header.columnconfigure(0, weight=1)
+        ttk.Label(console_header, text="Server Console", style="CardTitle.TLabel").grid(
+            row=0, column=0, sticky="w"
+        )
+        state_wrap = ttk.Frame(console_header, style="Card.TFrame")
+        state_wrap.grid(row=0, column=1, sticky="e")
+        self.console_state_dot = tk.Canvas(
+            state_wrap,
+            width=10,
+            height=10,
+            bg=self._colors["card_bg"],
+            highlightthickness=0,
+            bd=0,
+        )
+        self.console_state_dot.grid(row=0, column=0, padx=(0, 6))
+        self.console_state_dot_item = self.console_state_dot.create_oval(
+            1, 1, 9, 9, fill=self._colors["state_offline"], outline=""
+        )
+        ttk.Label(state_wrap, textvariable=self.console_state_var, style="ConsoleState.TLabel").grid(
+            row=0, column=1, sticky="e"
+        )
         ttk.Label(
-            right,
+            console_card,
             text="Live output stream and command input while the server is online.",
-            style="Meta.TLabel",
-        ).grid(row=1, column=0, sticky="w", pady=(2, 0))
+            style="CardSub.TLabel",
+        ).grid(row=1, column=0, sticky="w", pady=(6, section_gap))
+
         self.log_area = ScrolledText(
-            right,
+            console_card,
             wrap=tk.WORD,
             height=16,
-            bg="#050B16",
-            fg="#D9E8FF",
-            insertbackground="#D9E8FF",
+            bg=self._colors["console_bg"],
+            fg=self._colors["text_primary"],
+            insertbackground=self._colors["text_primary"],
             relief=tk.FLAT,
-            padx=8,
-            pady=8,
+            padx=10,
+            pady=10,
             borderwidth=0,
             font=(self._mono_font, 10),
         )
-        self.log_area.grid(row=2, column=0, sticky="nsew", pady=(8, 8))
+        self.log_area.grid(row=2, column=0, sticky="nsew")
         self.log_area.configure(state=tk.DISABLED)
 
-        console = ttk.Frame(right, style="Card.TFrame")
-        console.grid(row=3, column=0, sticky="ew")
-        console.columnconfigure(1, weight=1)
-        ttk.Label(console, text="Console Command", style="FieldLabel.TLabel").grid(
-            row=0, column=0, sticky="w"
+        command_row = ttk.Frame(console_card, style="Card.TFrame")
+        command_row.grid(row=3, column=0, sticky="ew", pady=(section_gap, 0))
+        command_row.columnconfigure(0, weight=1)
+        self.console_entry = ttk.Entry(
+            command_row,
+            textvariable=self.console_command_var,
+            style="Input.TEntry",
         )
-        self.console_entry = ttk.Entry(console, textvariable=self.console_command_var)
-        self.console_entry.grid(row=0, column=1, sticky="ew", padx=8)
+        self.console_entry.grid(row=0, column=0, sticky="ew", padx=(0, col_gap))
         self.send_command_btn = ttk.Button(
-            console,
+            command_row,
             text="Send",
             style="Primary.TButton",
             command=self._send_console_command,
         )
-        self.send_command_btn.grid(row=0, column=2, sticky="ew")
+        self.send_command_btn.grid(row=0, column=1, sticky="ew")
+        self._apply_command_placeholder()
 
     def _bind_events(self) -> None:
         self.loader_combo.bind("<<ComboboxSelected>>", self._on_loader_changed)
         self.mc_version_combo.bind("<<ComboboxSelected>>", self._on_minecraft_version_changed)
         self.console_entry.bind("<Return>", self._send_console_command)
+        self.console_entry.bind("<FocusIn>", self._on_console_focus_in)
+        self.console_entry.bind("<FocusOut>", self._on_console_focus_out)
         self.instance_dir_var.trace_add("write", self._on_instance_dir_changed)
+
+    def _apply_command_placeholder(self) -> None:
+        if self.console_command_var.get().strip():
+            return
+        self._command_placeholder_active = True
+        self.console_command_var.set(self._command_placeholder)
+        self.console_entry.configure(style="Placeholder.TEntry")
+
+    def _on_console_focus_in(self, _event: object = None) -> None:
+        if self._command_placeholder_active:
+            self.console_command_var.set("")
+            self._command_placeholder_active = False
+            self.console_entry.configure(style="Input.TEntry")
+
+    def _on_console_focus_out(self, _event: object = None) -> None:
+        if not self.console_command_var.get().strip():
+            self._apply_command_placeholder()
 
     def _on_instance_dir_changed(self, *_args: object) -> None:
         self._refresh_server_endpoint()
@@ -612,6 +824,12 @@ class LauncherApp(tk.Tk):
         self._refresh_loader_versions()
 
     def _sync_optional_fields(self) -> None:
+        if self._controls_busy:
+            self.loader_version_combo.configure(state="disabled")
+            self.refresh_loader_versions_btn.configure(state="disabled")
+            self.build_entry.configure(state="disabled")
+            return
+
         loader = self.loader_var.get()
         loader_version_supported = loader in {"fabric", "quilt", "forge", "neoforge"}
         build_supported = loader in {"paper", "folia", "purpur"}
@@ -765,23 +983,63 @@ class LauncherApp(tk.Tk):
         self._run_background_task("stop", lambda: process.stop(graceful_timeout=45.0))
 
     def _set_controls_enabled(self, enabled: bool) -> None:
-        state = "normal" if enabled else "disabled"
-        self.install_btn.configure(state=state)
-        self.start_btn.configure(state=state)
-        if hasattr(self, "refresh_versions_btn"):
-            self.refresh_versions_btn.configure(state=state)
-        if (
-            hasattr(self, "refresh_loader_versions_btn")
-            and self.loader_var.get() in {"fabric", "quilt", "forge", "neoforge"}
-        ):
-            self.refresh_loader_versions_btn.configure(state=state)
+        self._controls_busy = not enabled
+        entry_state = "normal" if enabled else "disabled"
+        combo_state = "readonly" if enabled else "disabled"
+
+        self.instance_dir_entry.configure(state=entry_state)
+        self.java_path_entry.configure(state=entry_state)
+        self.xms_entry.configure(state=entry_state)
+        self.xmx_entry.configure(state=entry_state)
+        self.build_entry.configure(state=entry_state)
+        self.loader_combo.configure(state=combo_state)
+        self.mc_version_combo.configure(state=combo_state)
+        self.browse_folder_btn.configure(state=entry_state)
+        self.refresh_versions_btn.configure(state=entry_state)
+        self.accept_eula_checkbox.configure(state=entry_state)
+        self.open_folder_btn.configure(state=entry_state)
+        self.discord_btn.configure(state=entry_state)
+        self.website_btn.configure(state=entry_state)
+
+        self._sync_optional_fields()
+        self._update_runtime_controls()
         self._update_console_controls()
+
+    def _update_runtime_controls(self) -> None:
+        process_running = bool(self._server_process and self._server_process.is_running())
+        self.start_btn.configure(
+            state="disabled" if self._controls_busy or process_running else "normal"
+        )
+        self.install_btn.configure(
+            state="disabled" if self._controls_busy or process_running else "normal"
+        )
+        self.stop_btn.configure(
+            state="normal" if process_running and not self._controls_busy else "disabled"
+        )
 
     def _update_console_controls(self) -> None:
         process_running = bool(self._server_process and self._server_process.is_running())
-        console_state = "normal" if process_running else "disabled"
+        console_state = "normal" if process_running and not self._controls_busy else "disabled"
+        self._update_console_state_indicator(process_running)
         self.console_entry.configure(state=console_state)
         self.send_command_btn.configure(state=console_state)
+        if console_state == "normal":
+            if self._command_placeholder_active:
+                self.console_entry.configure(style="Placeholder.TEntry")
+            else:
+                self.console_entry.configure(style="Input.TEntry")
+                if not self.console_command_var.get().strip():
+                    self._apply_command_placeholder()
+        else:
+            self.console_entry.configure(style="Input.TEntry")
+
+    def _update_console_state_indicator(self, running: bool) -> None:
+        if not hasattr(self, "console_state_dot"):
+            return
+        color = self._colors["state_online"] if running else self._colors["state_offline"]
+        text = "Online" if running else "Offline"
+        self.console_state_dot.itemconfigure(self.console_state_dot_item, fill=color)
+        self.console_state_var.set(text)
 
     def _run_background_task(self, task_name: str, fn) -> None:
         if self._worker and self._worker.is_alive():
@@ -903,6 +1161,7 @@ class LauncherApp(tk.Tk):
             self._append_log(f"Server exited with code {code}.")
             self._set_status("Server not running.")
             self._server_process = None
+            self._update_runtime_controls()
             self._update_console_controls()
         self.after(1000, self._poll_process_state)
 
@@ -911,7 +1170,7 @@ class LauncherApp(tk.Tk):
 
     def _send_console_command(self, _event: object = None) -> None:
         command = self.console_command_var.get().strip()
-        if not command:
+        if not command or self._command_placeholder_active:
             return
         process = self._server_process
         if not process or not process.is_running():
@@ -921,6 +1180,8 @@ class LauncherApp(tk.Tk):
         process.send_command(command)
         self._append_log(f"> {command}")
         self.console_command_var.set("")
+        self._command_placeholder_active = False
+        self._apply_command_placeholder()
 
     def _append_log(self, line: str) -> None:
         self.log_area.configure(state=tk.NORMAL)
@@ -934,26 +1195,24 @@ class LauncherApp(tk.Tk):
     def _refresh_server_endpoint(self) -> None:
         instance_value = self.instance_dir_var.get().strip()
         if not instance_value:
-            self.server_endpoint_var.set("Server Address: Choose a folder")
+            self.server_endpoint_var.set("Choose a folder")
             return
 
         instance_dir = Path(instance_value).resolve()
         properties_path = instance_dir / "server.properties"
         if not properties_path.exists():
-            self.server_endpoint_var.set("Server Address: Pending (server.properties not found)")
+            self.server_endpoint_var.set("Pending (server.properties not found)")
             return
 
         configured_host, port = read_server_endpoint(instance_dir)
         if configured_host:
             endpoint = self._format_host_port(configured_host, port)
-            self.server_endpoint_var.set(f"Server Address: {endpoint}")
+            self.server_endpoint_var.set(endpoint)
             return
 
         detected_host = self._detect_lan_ip() or "0.0.0.0"
         endpoint = self._format_host_port(detected_host, port)
-        self.server_endpoint_var.set(
-            f"Server Address: {endpoint} (server-ip is empty, using LAN/default)"
-        )
+        self.server_endpoint_var.set(f"{endpoint} (server-ip empty; using LAN/default)")
 
     @staticmethod
     def _detect_lan_ip() -> str | None:
