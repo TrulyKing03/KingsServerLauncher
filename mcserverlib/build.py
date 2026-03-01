@@ -54,6 +54,30 @@ def _ensure_windows_icon(project_root: Path) -> Path | None:
     return icon_path
 
 
+def _resolve_build_icon(project_root: Path) -> Path | None:
+    assets_dir = project_root / "assets"
+    if not assets_dir.exists():
+        return None
+
+    if os.name == "nt":
+        return _ensure_windows_icon(project_root)
+
+    if sys.platform == "darwin":
+        icns_path = assets_dir / "icon.icns"
+        if icns_path.exists():
+            return icns_path
+        return None
+
+    png_candidates = [assets_dir / "icon.png", assets_dir / "logo.png"]
+    return next((candidate for candidate in png_candidates if candidate.exists()), None)
+
+
+def _onefile_artifact_name(app_name: str) -> str:
+    if os.name == "nt":
+        return f"{app_name}.exe"
+    return app_name
+
+
 def build_launcher(
     project_root: Path,
     app_name: str = "KingsServerLauncher",
@@ -81,7 +105,7 @@ def build_launcher(
     if assets_dir.exists():
         command.extend(["--add-data", _pyinstaller_data_arg(assets_dir, "assets")])
 
-    icon_path = _ensure_windows_icon(project_root)
+    icon_path = _resolve_build_icon(project_root)
     if icon_path is not None:
         command.extend(["--icon", str(icon_path)])
 
@@ -91,7 +115,7 @@ def build_launcher(
 
     dist_dir = project_root / "dist"
     if onefile:
-        return dist_dir / f"{app_name}.exe"
+        return dist_dir / _onefile_artifact_name(app_name)
     return dist_dir / app_name
 
 
