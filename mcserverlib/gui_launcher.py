@@ -138,6 +138,12 @@ class LauncherApp(tk.Tk):
             font=(base_font, 9),
         )
         style.configure(
+            "Notice.TLabel",
+            background=accent_bg,
+            foreground="#FF6A6A",
+            font=(semibold_font, 9),
+        )
+        style.configure(
             "FieldLabel.TLabel",
             background=panel_bg,
             foreground=text_primary,
@@ -357,8 +363,13 @@ class LauncherApp(tk.Tk):
             text="Launch, install, and control Minecraft servers from one sleek control center",
             style="SubHeader.TLabel",
         ).grid(row=1, column=text_col, sticky="w")
+        ttk.Label(
+            banner,
+            text="Whitelist is ON by default after install. Turn it off and save in server.properties if needed.",
+            style="Notice.TLabel",
+        ).grid(row=2, column=text_col, sticky="w", pady=(4, 0))
         link_row = ttk.Frame(banner, style="Accent.TFrame")
-        link_row.grid(row=0, column=text_col + 1, rowspan=2, sticky="e")
+        link_row.grid(row=0, column=text_col + 1, rowspan=3, sticky="e")
         ttk.Button(link_row, text="Discord", style="Link.TButton", command=self._open_discord).grid(
             row=0, column=0, padx=(0, 8)
         )
