@@ -67,6 +67,11 @@ Native binaries are built per operating system:
 - Linux: `KingsServerLauncher-linux`
 - macOS: `KingsServerLauncher-macos`
 
+Platform maintainers:
+
+- Linux/macOS builds are managed by `boyninja1555`.
+- Windows builds are managed by `TrulyKing03`.
+
 The repository includes a GitHub Actions workflow for this:
 
 - `.github/workflows/build-multiplatform.yml`
