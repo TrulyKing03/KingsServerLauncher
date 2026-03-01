@@ -86,7 +86,8 @@ class LauncherApp(tk.Tk):
         semibold_font = "Segoe UI Semibold" if "Segoe UI Semibold" in available_fonts else base_font
         title_font = "Bahnschrift SemiBold" if "Bahnschrift SemiBold" in available_fonts else semibold_font
 
-        self.option_add("*Font", f"{base_font} 10")
+        # Keep font family names with spaces as one token for Tk.
+        self.option_add("*Font", f"{{{base_font}}} 10")
         self._mono_font = mono_font
         self.configure(bg="#E9EEF8")
 
