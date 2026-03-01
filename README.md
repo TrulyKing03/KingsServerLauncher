@@ -59,6 +59,30 @@ PowerShell wrapper (same result):
 .\build_launcher.ps1
 ```
 
+## Cross-Platform Builds (Linux/macOS/Windows)
+
+Native binaries are built per operating system:
+
+- Windows: `KingsServerLauncher.exe`
+- Linux: `KingsServerLauncher-linux`
+- macOS: `KingsServerLauncher-macos`
+
+The repository includes a GitHub Actions workflow for this:
+
+- `.github/workflows/build-multiplatform.yml`
+
+How to use it:
+
+1. Open the repository on GitHub.
+2. Go to **Actions**.
+3. Run **Build Multi-Platform Binaries**.
+4. Download artifacts from the completed run.
+
+Note:
+
+- Executable files are intentionally **not committed** to this repository.
+- Build outputs stay in local `dist/` or GitHub Actions artifacts.
+
 ## Desktop Launcher
 
 Run the GUI directly from Python:
