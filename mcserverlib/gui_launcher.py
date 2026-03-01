@@ -796,9 +796,14 @@ class LauncherApp(tk.Tk):
         self.console_entry.bind("<FocusIn>", self._on_console_focus_in)
         self.console_entry.bind("<FocusOut>", self._on_console_focus_out)
         self.instance_dir_var.trace_add("write", self._on_instance_dir_changed)
-        self.bind_all("<MouseWheel>", self._on_global_mousewheel, add="+")
-        self.bind_all("<Button-4>", self._on_global_mousewheel, add="+")
-        self.bind_all("<Button-5>", self._on_global_mousewheel, add="+")
+        self._bind_mousewheel_recursive(self._viewport_container)
+
+    def _bind_mousewheel_recursive(self, widget: tk.Misc) -> None:
+        widget.bind("<MouseWheel>", self._on_global_mousewheel, add="+")
+        widget.bind("<Button-4>", self._on_global_mousewheel, add="+")
+        widget.bind("<Button-5>", self._on_global_mousewheel, add="+")
+        for child in widget.winfo_children():
+            self._bind_mousewheel_recursive(child)
 
     def _on_viewport_content_configure(self, _event: object = None) -> None:
         self._sync_viewport_scrollregion()
@@ -846,9 +851,11 @@ class LauncherApp(tk.Tk):
         elif num == 5:
             delta_units = 3
         elif delta != 0:
-            direction = -1 if delta > 0 else 1
-            step_count = max(1, abs(delta) // 120)
-            delta_units = direction * step_count * 3
+            if sys.platform == "darwin":
+                delta_units = -delta
+            else:
+                raw_units = -int(delta / 120)
+                delta_units = raw_units if raw_units != 0 else (-1 if delta > 0 else 1)
         else:
             return None
 
