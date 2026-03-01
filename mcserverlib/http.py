@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 import ipaddress
 import json
+import ssl
 import tempfile
 import urllib.error
 import urllib.parse
@@ -28,22 +29,29 @@ class HttpClient:
         self.max_text_response_bytes = max_text_response_bytes
         self.max_download_bytes = max_download_bytes
         self.user_agent = "mcserverlib/0.1 (+https://github.com/)"
+        self._ssl_context = self._build_ssl_context()
 
     def _request(self, url: str) -> urllib.request.Request:
         self._validate_url(url)
         return urllib.request.Request(url, headers={"User-Agent": self.user_agent})
 
+    def _open(self, url: str):
+        request = self._request(url)
+        return urllib.request.urlopen(
+            request,
+            timeout=self.timeout_seconds,
+            context=self._ssl_context,
+        )
+
     def get_json(self, url: str) -> Any:
         try:
-            with urllib.request.urlopen(
-                self._request(url), timeout=self.timeout_seconds
-            ) as response:
+            with self._open(url) as response:
                 payload = self._read_limited(
                     response,
                     max_bytes=self.max_text_response_bytes,
                     url=url,
                 ).decode("utf-8")
-        except urllib.error.URLError as exc:
+        except (urllib.error.URLError, ssl.SSLError) as exc:
             raise DownloadError(f"Request failed for {url}: {exc}") from exc
         try:
             return json.loads(payload)
@@ -52,15 +60,13 @@ class HttpClient:
 
     def get_text(self, url: str) -> str:
         try:
-            with urllib.request.urlopen(
-                self._request(url), timeout=self.timeout_seconds
-            ) as response:
+            with self._open(url) as response:
                 return self._read_limited(
                     response,
                     max_bytes=self.max_text_response_bytes,
                     url=url,
                 ).decode("utf-8")
-        except urllib.error.URLError as exc:
+        except (urllib.error.URLError, ssl.SSLError) as exc:
             raise DownloadError(f"Request failed for {url}: {exc}") from exc
 
     def download(
@@ -73,9 +79,7 @@ class HttpClient:
         destination.parent.mkdir(parents=True, exist_ok=True)
         tmp_path: Path | None = None
         try:
-            with urllib.request.urlopen(
-                self._request(url), timeout=self.timeout_seconds
-            ) as response, tempfile.NamedTemporaryFile(
+            with self._open(url) as response, tempfile.NamedTemporaryFile(
                 "wb", delete=False, dir=str(destination.parent)
             ) as tmp:
                 tmp_path = Path(tmp.name)
@@ -108,7 +112,7 @@ class HttpClient:
                         f"Expected {expected_hash} ({hash_algorithm}), got {actual}."
                     )
             tmp_path.replace(destination)
-        except urllib.error.URLError as exc:
+        except (urllib.error.URLError, ssl.SSLError) as exc:
             raise DownloadError(f"Download failed for {url}: {exc}") from exc
         finally:
             if tmp_path and tmp_path.exists():
@@ -117,6 +121,20 @@ class HttpClient:
                 except OSError:
                     pass
         return destination
+
+    @staticmethod
+    def _build_ssl_context() -> ssl.SSLContext:
+        default_context = ssl.create_default_context()
+        try:
+            import certifi  # type: ignore[import-untyped]
+        except Exception:
+            return default_context
+
+        try:
+            cafile = certifi.where()
+        except Exception:
+            return default_context
+        return ssl.create_default_context(cafile=cafile)
 
     @staticmethod
     def _validate_url(url: str) -> None:

@@ -23,7 +23,7 @@ classifiers = [
   "Topic :: Games/Entertainment",
   "Topic :: System :: Systems Administration",
 ]
-dependencies = []
+dependencies = ["certifi>=2024.0.0"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0.0"]
