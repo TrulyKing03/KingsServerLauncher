@@ -355,6 +355,16 @@ class LauncherApp(tk.Tk):
             darkcolor=colors["progress_fill"],
             bordercolor=colors["progress_trough"],
         )
+        style.configure(
+            "Launch.Vertical.TScrollbar",
+            gripcount=0,
+            troughcolor="#0D1424",
+            background="#263754",
+            darkcolor="#1F2E48",
+            lightcolor="#324A72",
+            bordercolor="#0D1424",
+            arrowcolor="#A8BBE4",
+        )
 
     @staticmethod
     def _project_root() -> Path:
@@ -427,15 +437,28 @@ class LauncherApp(tk.Tk):
         row_gap = 8
         col_gap = 12
 
+        self._viewport_shell = ttk.Frame(self, style="App.TFrame")
+        self._viewport_shell.pack(fill=tk.BOTH, expand=True)
+        self._viewport_shell.columnconfigure(0, weight=1)
+        self._viewport_shell.rowconfigure(0, weight=1)
+
         self._viewport_canvas = tk.Canvas(
-            self,
+            self._viewport_shell,
             bg=self._colors["app_bg"],
             highlightthickness=0,
             bd=0,
             relief=tk.FLAT,
             yscrollincrement=24,
         )
-        self._viewport_canvas.pack(fill=tk.BOTH, expand=True)
+        self._viewport_canvas.grid(row=0, column=0, sticky="nsew")
+        self._viewport_scrollbar = ttk.Scrollbar(
+            self._viewport_shell,
+            orient="vertical",
+            command=self._viewport_canvas.yview,
+            style="Launch.Vertical.TScrollbar",
+        )
+        self._viewport_scrollbar.grid(row=0, column=1, sticky="ns", padx=(0, 10), pady=(8, 8))
+        self._viewport_canvas.configure(yscrollcommand=self._viewport_scrollbar.set)
         self._viewport_container = ttk.Frame(self._viewport_canvas, style="App.TFrame")
         self._viewport_window = self._viewport_canvas.create_window(
             (0, 0),
