@@ -1,0 +1,9 @@
+#!/bin/bash
+
+PYTHON_EXE=${1:-"python3"}
+NAME=${2:-"KingsServerLauncher"}
+
+set -e
+echo "Using Python: $PYTHON_EXE"
+$PYTHON_EXE -m mcserverlib.build --name "$NAME"
+echo "Done. Check the dist folder for the launcher executable."
