@@ -6,6 +6,7 @@ import queue
 import threading
 import traceback
 import tkinter as tk
+import tkinter.font as tkfont
 from tkinter import filedialog, messagebox, ttk
 from tkinter.scrolledtext import ScrolledText
 import webbrowser
@@ -70,99 +71,146 @@ class LauncherApp(tk.Tk):
         self._refresh_versions()
 
     def _configure_style(self) -> None:
-        self.configure(bg="#0B1020")
         style = ttk.Style(self)
-        style.theme_use("clam")
-        style.configure("App.TFrame", background="#0B1020")
-        style.configure("Card.TFrame", background="#111A2E")
-        style.configure("Accent.TFrame", background="#0F2A50")
+        available_themes = set(style.theme_names())
+        for candidate in ("vista", "winnative", "clam"):
+            if candidate in available_themes:
+                style.theme_use(candidate)
+                break
+
+        available_fonts = set(tkfont.families(self))
+        base_font = "Segoe UI" if "Segoe UI" in available_fonts else "TkDefaultFont"
+        mono_font = "Cascadia Code" if "Cascadia Code" in available_fonts else "Consolas"
+        if mono_font not in available_fonts:
+            mono_font = "TkFixedFont"
+        semibold_font = "Segoe UI Semibold" if "Segoe UI Semibold" in available_fonts else base_font
+        title_font = "Bahnschrift SemiBold" if "Bahnschrift SemiBold" in available_fonts else semibold_font
+
+        self.option_add("*Font", f"{base_font} 10")
+        self._mono_font = mono_font
+        self.configure(bg="#E9EEF8")
+
+        style.configure("App.TFrame", background="#E9EEF8")
+        style.configure("Card.TFrame", background="#FFFFFF", relief="flat")
+        style.configure("Accent.TFrame", background="#0F172A")
         style.configure(
             "Header.TLabel",
-            background="#0F2A50",
-            foreground="#F5F7FF",
-            font=("Segoe UI", 20, "bold"),
+            background="#0F172A",
+            foreground="#F8FAFF",
+            font=(title_font, 23),
         )
         style.configure(
             "SubHeader.TLabel",
-            background="#0F2A50",
-            foreground="#C8D4F2",
-            font=("Segoe UI", 10),
+            background="#0F172A",
+            foreground="#B7C8E8",
+            font=(base_font, 10),
         )
         style.configure(
             "FieldLabel.TLabel",
-            background="#111A2E",
-            foreground="#DCE6FF",
-            font=("Segoe UI", 10, "bold"),
+            background="#FFFFFF",
+            foreground="#1E293B",
+            font=(semibold_font, 10),
         )
         style.configure(
             "Status.TLabel",
-            background="#0B1020",
-            foreground="#C8D4F2",
-            font=("Segoe UI", 10),
+            background="#FFFFFF",
+            foreground="#0F172A",
+            font=(semibold_font, 10),
+        )
+        style.configure(
+            "Meta.TLabel",
+            background="#FFFFFF",
+            foreground="#5B6B86",
+            font=(base_font, 9),
         )
         style.configure(
             "TEntry",
-            fieldbackground="#1A2640",
-            foreground="#F5F7FF",
-            bordercolor="#2A3F63",
-            insertcolor="#F5F7FF",
+            fieldbackground="#F7FAFF",
+            foreground="#0F172A",
+            borderwidth=1,
+            relief="solid",
+            padding=(8, 6),
         )
-        style.map("TEntry", bordercolor=[("focus", "#4D8BFF")])
+        style.map(
+            "TEntry",
+            fieldbackground=[("readonly", "#EEF3FF"), ("disabled", "#F1F5FC")],
+            foreground=[("disabled", "#7A869E")],
+        )
         style.configure(
             "TCombobox",
-            fieldbackground="#1A2640",
-            foreground="#F5F7FF",
-            bordercolor="#2A3F63",
+            fieldbackground="#F7FAFF",
+            foreground="#0F172A",
             arrowsize=16,
+            borderwidth=1,
+            padding=(8, 6),
         )
-        style.map("TCombobox", bordercolor=[("focus", "#4D8BFF")])
+        style.map(
+            "TCombobox",
+            fieldbackground=[("readonly", "#EEF3FF"), ("disabled", "#F1F5FC")],
+            foreground=[("readonly", "#0F172A"), ("disabled", "#7A869E")],
+        )
         style.configure(
             "Primary.TButton",
-            font=("Segoe UI", 10, "bold"),
-            padding=(12, 8),
-            background="#2E6FFF",
+            font=(semibold_font, 10),
+            padding=(14, 10),
+            background="#2563EB",
             foreground="#FFFFFF",
             borderwidth=0,
         )
         style.map(
             "Primary.TButton",
-            background=[("active", "#4D8BFF"), ("disabled", "#5D6B88")],
+            background=[("active", "#1D4ED8"), ("disabled", "#A8B5CC")],
+            foreground=[("disabled", "#E8ECF4")],
         )
         style.configure(
             "Secondary.TButton",
-            font=("Segoe UI", 9),
-            padding=(10, 7),
-            background="#1E2C46",
-            foreground="#EAF0FF",
+            font=(semibold_font, 9),
+            padding=(12, 9),
+            background="#E2E8F4",
+            foreground="#1E293B",
             borderwidth=0,
         )
         style.map(
             "Secondary.TButton",
-            background=[("active", "#31496F"), ("disabled", "#5D6B88")],
+            background=[("active", "#D2DBED"), ("disabled", "#EEF2F9")],
+            foreground=[("disabled", "#8A97B0")],
         )
         style.configure(
             "Action.TButton",
-            font=("Segoe UI", 10, "bold"),
-            padding=(12, 8),
-            background="#23B56F",
+            font=(semibold_font, 10),
+            padding=(14, 10),
+            background="#16A34A",
             foreground="#FFFFFF",
             borderwidth=0,
         )
         style.map(
             "Action.TButton",
-            background=[("active", "#37C985"), ("disabled", "#5D6B88")],
+            background=[("active", "#15803D"), ("disabled", "#A8B5CC")],
+            foreground=[("disabled", "#E8ECF4")],
         )
         style.configure(
             "Warn.TButton",
-            font=("Segoe UI", 10, "bold"),
-            padding=(12, 8),
-            background="#E1524A",
+            font=(semibold_font, 10),
+            padding=(14, 10),
+            background="#DC2626",
             foreground="#FFFFFF",
             borderwidth=0,
         )
         style.map(
             "Warn.TButton",
-            background=[("active", "#F56A62"), ("disabled", "#5D6B88")],
+            background=[("active", "#B91C1C"), ("disabled", "#A8B5CC")],
+            foreground=[("disabled", "#E8ECF4")],
+        )
+        style.configure(
+            "TCheckbutton",
+            background="#FFFFFF",
+            foreground="#1E293B",
+            font=(base_font, 10),
+        )
+        style.map(
+            "TCheckbutton",
+            background=[("active", "#FFFFFF"), ("disabled", "#FFFFFF")],
+            foreground=[("disabled", "#8A97B0")],
         )
 
     def _build_menu(self) -> None:
@@ -176,12 +224,12 @@ class LauncherApp(tk.Tk):
         self.configure(menu=menu)
 
     def _build_ui(self) -> None:
-        root = ttk.Frame(self, style="App.TFrame", padding=12)
+        root = ttk.Frame(self, style="App.TFrame", padding=18)
         root.pack(fill=tk.BOTH, expand=True)
         root.columnconfigure(0, weight=3)
         root.rowconfigure(2, weight=1)
 
-        banner = ttk.Frame(root, style="Accent.TFrame", padding=(16, 14))
+        banner = ttk.Frame(root, style="Accent.TFrame", padding=(22, 18))
         banner.grid(row=0, column=0, sticky="ew")
         banner.columnconfigure(0, weight=1)
         ttk.Label(banner, text="KingsServerLauncher", style="Header.TLabel").grid(
@@ -202,16 +250,27 @@ class LauncherApp(tk.Tk):
         )
 
         body = ttk.Frame(root, style="App.TFrame")
-        body.grid(row=2, column=0, sticky="nsew", pady=(12, 0))
+        body.grid(row=2, column=0, sticky="nsew", pady=(14, 0))
         body.columnconfigure(0, weight=1)
-        body.columnconfigure(1, weight=1)
+        body.columnconfigure(1, weight=2)
         body.rowconfigure(1, weight=1)
 
-        left = ttk.Frame(body, style="Card.TFrame", padding=14)
-        left.grid(row=0, column=0, rowspan=2, sticky="nsew", padx=(0, 8))
+        left = ttk.Frame(body, style="Card.TFrame", padding=18)
+        left.grid(row=0, column=0, rowspan=2, sticky="nsew", padx=(0, 10))
         left.columnconfigure(1, weight=1)
 
         row = 0
+        ttk.Label(left, text="Server Setup", style="FieldLabel.TLabel").grid(
+            row=row, column=0, columnspan=2, sticky="w"
+        )
+        row += 1
+        ttk.Label(
+            left,
+            text="Choose storage, loader, and runtime options.",
+            style="Meta.TLabel",
+        ).grid(row=row, column=0, columnspan=2, sticky="w", pady=(2, 10))
+
+        row += 1
         ttk.Label(left, text="Server Storage", style="FieldLabel.TLabel").grid(
             row=row, column=0, columnspan=2, sticky="w"
         )
@@ -327,8 +386,8 @@ class LauncherApp(tk.Tk):
             command=self._clear_log,
         ).grid(row=0, column=1, sticky="ew", padx=(6, 0))
 
-        right_top = ttk.Frame(body, style="Card.TFrame", padding=12)
-        right_top.grid(row=0, column=1, sticky="ew", padx=(8, 0))
+        right_top = ttk.Frame(body, style="Card.TFrame", padding=14)
+        right_top.grid(row=0, column=1, sticky="ew", padx=(10, 0))
         right_top.columnconfigure(0, weight=1)
         ttk.Label(right_top, textvariable=self.status_var, style="Status.TLabel").grid(
             row=0, column=0, sticky="w"
@@ -336,27 +395,34 @@ class LauncherApp(tk.Tk):
         self.progress = ttk.Progressbar(right_top, mode="indeterminate")
         self.progress.grid(row=1, column=0, sticky="ew", pady=(8, 0))
 
-        right = ttk.Frame(body, style="Card.TFrame", padding=12)
-        right.grid(row=1, column=1, sticky="nsew", padx=(8, 0), pady=(8, 0))
+        right = ttk.Frame(body, style="Card.TFrame", padding=14)
+        right.grid(row=1, column=1, sticky="nsew", padx=(10, 0), pady=(10, 0))
         right.columnconfigure(0, weight=1)
-        right.rowconfigure(1, weight=1)
-        ttk.Label(right, text="Server Log", style="FieldLabel.TLabel").grid(row=0, column=0, sticky="w")
+        right.rowconfigure(2, weight=1)
+        ttk.Label(right, text="Server Console", style="FieldLabel.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(
+            right,
+            text="Live output and command input while the server is running.",
+            style="Meta.TLabel",
+        ).grid(row=1, column=0, sticky="w", pady=(2, 0))
         self.log_area = ScrolledText(
             right,
             wrap=tk.WORD,
             height=16,
-            bg="#0D162B",
-            fg="#D9E5FF",
-            insertbackground="#D9E5FF",
+            bg="#0B1220",
+            fg="#E7EFFD",
+            insertbackground="#E7EFFD",
             relief=tk.FLAT,
             padx=8,
             pady=8,
+            borderwidth=0,
+            font=(self._mono_font, 10),
         )
-        self.log_area.grid(row=1, column=0, sticky="nsew", pady=(6, 8))
+        self.log_area.grid(row=2, column=0, sticky="nsew", pady=(8, 8))
         self.log_area.configure(state=tk.DISABLED)
 
         console = ttk.Frame(right, style="Card.TFrame")
-        console.grid(row=2, column=0, sticky="ew")
+        console.grid(row=3, column=0, sticky="ew")
         console.columnconfigure(1, weight=1)
         ttk.Label(console, text="Console Command", style="FieldLabel.TLabel").grid(
             row=0, column=0, sticky="w"
