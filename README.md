@@ -81,18 +81,6 @@ How to use it:
 Note:
 
 - Executable files are intentionally **not committed** to this repository.
-- Build outputs stay in local `dist/` or GitHub Actions artifacts.
-- Each workflow artifact includes a `SHA256SUMS.txt` file for verification.
-
-### Optional Windows Code Signing
-
-To reduce SmartScreen/AV false positives, enable signing in the workflow run and configure these repository secrets:
-
-- `WINDOWS_PFX_BASE64` (base64-encoded `.pfx` certificate file)
-- `WINDOWS_PFX_PASSWORD` (certificate password)
-- `WINDOWS_TIMESTAMP_URL` (optional timestamp URL; defaults to DigiCert timestamp server)
-
-When `sign_windows=true` is selected in workflow dispatch, the Windows build is signed and verified before artifacts are uploaded.
 
 ## Desktop Launcher
 
