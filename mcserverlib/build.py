@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -16,6 +17,41 @@ def _run(command: list[str], cwd: Path) -> None:
         raise RuntimeError(
             f"Command failed with exit code {result.returncode}: {' '.join(command)}"
         )
+
+
+def _pyinstaller_data_arg(source: Path, destination: str) -> str:
+    separator = ";" if os.name == "nt" else ":"
+    return f"{source}{separator}{destination}"
+
+
+def _ensure_windows_icon(project_root: Path) -> Path | None:
+    assets_dir = project_root / "assets"
+    icon_path = assets_dir / "icon.ico"
+    if icon_path.exists():
+        return icon_path
+
+    logo_candidates = [
+        assets_dir / "logo.png",
+        assets_dir / "kings-logo.png",
+    ]
+    logo_path = next((candidate for candidate in logo_candidates if candidate.exists()), None)
+    if logo_path is None:
+        return None
+
+    try:
+        from PIL import Image  # type: ignore[import-untyped]
+    except Exception:
+        return None
+
+    assets_dir.mkdir(parents=True, exist_ok=True)
+    with Image.open(logo_path) as image:
+        rgba = image.convert("RGBA")
+        rgba.save(
+            icon_path,
+            format="ICO",
+            sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)],
+        )
+    return icon_path
 
 
 def build_launcher(
@@ -41,6 +77,14 @@ def build_launcher(
         "--name",
         app_name,
     ]
+    assets_dir = project_root / "assets"
+    if assets_dir.exists():
+        command.extend(["--add-data", _pyinstaller_data_arg(assets_dir, "assets")])
+
+    icon_path = _ensure_windows_icon(project_root)
+    if icon_path is not None:
+        command.extend(["--icon", str(icon_path)])
+
     command.append("--onefile" if onefile else "--onedir")
     command.append(str(launcher_script))
     _run(command, cwd=project_root)
