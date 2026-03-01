@@ -49,7 +49,7 @@ class LauncherApp(tk.Tk):
         super().__init__()
         self.title("KingsServerLauncher")
         self.geometry("1180x780")
-        self.minsize(1020, 700)
+        self.minsize(920, 620)
 
         self.manager = ServerManager()
         self.catalog = VersionCatalog(http_client=self.manager.http_client)
@@ -427,8 +427,31 @@ class LauncherApp(tk.Tk):
         row_gap = 8
         col_gap = 12
 
-        root = ttk.Frame(self, style="App.TFrame", padding=(outer_padding, outer_padding))
-        root.pack(fill=tk.BOTH, expand=True)
+        self._viewport_canvas = tk.Canvas(
+            self,
+            bg=self._colors["app_bg"],
+            highlightthickness=0,
+            bd=0,
+            relief=tk.FLAT,
+            yscrollincrement=24,
+        )
+        self._viewport_canvas.pack(fill=tk.BOTH, expand=True)
+        self._viewport_container = ttk.Frame(self._viewport_canvas, style="App.TFrame")
+        self._viewport_window = self._viewport_canvas.create_window(
+            (0, 0),
+            window=self._viewport_container,
+            anchor="nw",
+        )
+        self._viewport_container.bind("<Configure>", self._on_viewport_content_configure)
+        self._viewport_canvas.bind("<Configure>", self._on_viewport_canvas_configure)
+
+        root = ttk.Frame(
+            self._viewport_container,
+            style="App.TFrame",
+            padding=(outer_padding, outer_padding),
+        )
+        root.grid(row=0, column=0, sticky="nsew")
+        self._viewport_container.columnconfigure(0, weight=1)
         root.columnconfigure(0, weight=1)
         root.rowconfigure(2, weight=1)
 
@@ -764,6 +787,7 @@ class LauncherApp(tk.Tk):
         )
         self.send_command_btn.grid(row=0, column=1, sticky="ew")
         self._apply_command_placeholder()
+        self.after_idle(self._sync_viewport_scrollregion)
 
     def _bind_events(self) -> None:
         self.loader_combo.bind("<<ComboboxSelected>>", self._on_loader_changed)
@@ -772,6 +796,64 @@ class LauncherApp(tk.Tk):
         self.console_entry.bind("<FocusIn>", self._on_console_focus_in)
         self.console_entry.bind("<FocusOut>", self._on_console_focus_out)
         self.instance_dir_var.trace_add("write", self._on_instance_dir_changed)
+        self.bind_all("<MouseWheel>", self._on_global_mousewheel, add="+")
+        self.bind_all("<Button-4>", self._on_global_mousewheel, add="+")
+        self.bind_all("<Button-5>", self._on_global_mousewheel, add="+")
+
+    def _on_viewport_content_configure(self, _event: object = None) -> None:
+        self._sync_viewport_scrollregion()
+
+    def _on_viewport_canvas_configure(self, event: object) -> None:
+        width = int(getattr(event, "width", 0))
+        if width > 0:
+            self._viewport_canvas.itemconfigure(self._viewport_window, width=width)
+        self._sync_viewport_scrollregion()
+
+    def _sync_viewport_scrollregion(self) -> None:
+        if not hasattr(self, "_viewport_canvas"):
+            return
+        bbox = self._viewport_canvas.bbox("all")
+        if bbox:
+            self._viewport_canvas.configure(scrollregion=bbox)
+
+    def _viewport_overflows(self) -> bool:
+        if not hasattr(self, "_viewport_canvas"):
+            return False
+        bbox = self._viewport_canvas.bbox("all")
+        if not bbox:
+            return False
+        content_height = bbox[3] - bbox[1]
+        viewport_height = self._viewport_canvas.winfo_height()
+        return content_height > (viewport_height + 1)
+
+    @staticmethod
+    def _is_widget_within(widget: object, container: tk.Misc) -> bool:
+        widget_path = str(widget)
+        container_path = str(container)
+        return widget_path == container_path or widget_path.startswith(f"{container_path}.")
+
+    def _on_global_mousewheel(self, event: object) -> str | None:
+        if not self._viewport_overflows():
+            return None
+        if hasattr(self, "log_area") and self._is_widget_within(getattr(event, "widget", ""), self.log_area):
+            return None
+
+        delta_units = 0
+        num = int(getattr(event, "num", 0) or 0)
+        delta = int(getattr(event, "delta", 0) or 0)
+        if num == 4:
+            delta_units = -3
+        elif num == 5:
+            delta_units = 3
+        elif delta != 0:
+            direction = -1 if delta > 0 else 1
+            step_count = max(1, abs(delta) // 120)
+            delta_units = direction * step_count * 3
+        else:
+            return None
+
+        self._viewport_canvas.yview_scroll(delta_units, "units")
+        return "break"
 
     def _apply_command_placeholder(self) -> None:
         if self.console_command_var.get().strip():
