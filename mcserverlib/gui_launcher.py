@@ -9,6 +9,7 @@ import threading
 import traceback
 import tkinter as tk
 import tkinter.font as tkfont
+import urllib.parse
 from tkinter import filedialog, messagebox, ttk
 from tkinter.scrolledtext import ScrolledText
 import webbrowser
@@ -28,6 +29,7 @@ except ImportError:  # pragma: no cover - fallback for direct/frozen entry
 
 DISCORD_URL = "https://discord.gg/AqUmRUshhK"
 WEBSITE_URL = "https://TrulyKing.dev"
+ALLOWED_EXTERNAL_HOSTS = {"discord.gg", "trulyking.dev", "www.trulyking.dev"}
 ASSETS_DIRNAME = "assets"
 LOGO_CANDIDATE_NAMES = (
     "logo.png",
@@ -575,6 +577,11 @@ class LauncherApp(tk.Tk):
         self._open_url(WEBSITE_URL)
 
     def _open_url(self, url: str) -> None:
+        parsed = urllib.parse.urlparse(url)
+        host = (parsed.hostname or "").lower()
+        if parsed.scheme.lower() != "https" or host not in ALLOWED_EXTERNAL_HOSTS:
+            self._set_status("Blocked unsafe external link.")
+            return
         webbrowser.open_new_tab(url)
 
     def _show_about(self) -> None:

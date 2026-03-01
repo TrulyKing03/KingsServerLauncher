@@ -1,3 +1,6 @@
+import pytest
+
+from mcserverlib.exceptions import ManifestError
 from mcserverlib.manager import ServerManager
 from mcserverlib.models import ServerManifest, StartCommands
 
@@ -35,7 +38,7 @@ def test_build_start_command_uses_platform_override(monkeypatch):
         minecraft_version="1.21.11",
         start=StartCommands(
             default=["{java}", "-jar", "server.jar", "nogui"],
-            windows=["cmd", "/c", "run.bat"],
+            windows=["{java}", "@user_jvm_args.txt", "@libraries/forge/win_args.txt", "nogui"],
         ),
     )
     class _DummyOs:
@@ -43,4 +46,21 @@ def test_build_start_command_uses_platform_override(monkeypatch):
 
     monkeypatch.setattr("mcserverlib.models.os", _DummyOs)
     command = manager.build_start_command(manifest, java_path="java")
-    assert command == ["cmd", "/c", "run.bat"]
+    assert command == ["java", "@user_jvm_args.txt", "@libraries/forge/win_args.txt", "nogui"]
+
+
+def test_build_start_command_rejects_non_java_entrypoint():
+    manager = ServerManager()
+    manifest = ServerManifest(
+        loader="forge",
+        minecraft_version="1.21.11",
+        start=StartCommands(default=["cmd", "/c", "run.bat"]),
+    )
+    with pytest.raises(ManifestError):
+        manager.build_start_command(manifest, java_path="java")
+
+
+def test_resolve_under_instance_dir_blocks_traversal(tmp_path):
+    manager = ServerManager()
+    with pytest.raises(ManifestError):
+        manager._resolve_under_instance_dir("../outside.jar", tmp_path)

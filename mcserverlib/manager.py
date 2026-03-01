@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Iterable
 
+from .exceptions import ManifestError
 from .http import HttpClient
 from .models import InstallRequest, InstallResult, ServerManifest
 from .process import LogHandler, ServerProcess
@@ -64,7 +65,9 @@ class ServerManager:
         xmx: str | None = None,
         jvm_args: Iterable[str] | None = None,
     ) -> list[str]:
+        self._validate_java_path(java_path)
         raw_command = manifest.start.for_platform()
+        self._validate_start_template(raw_command)
         command = [java_path if token == "{java}" else token for token in raw_command]
         if "{java}" in raw_command and command:
             insert_at = command.index(java_path) + 1
@@ -91,6 +94,9 @@ class ServerManager:
     ) -> ServerProcess:
         instance = Path(instance_dir).resolve()
         manifest = load_manifest(instance)
+        raw_command = manifest.start.for_platform()
+        self._validate_start_template(raw_command)
+        self._validate_start_paths(raw_command, instance)
         command = self.build_start_command(
             manifest=manifest,
             java_path=java_path,
@@ -104,3 +110,60 @@ class ServerManager:
             log_handler=log_handler,
             env=env,
         )
+
+    @staticmethod
+    def _validate_java_path(java_path: str) -> None:
+        value = str(java_path).strip()
+        if not value:
+            raise ManifestError("Java path cannot be empty.")
+        if any(char in value for char in ("\x00", "\r", "\n")):
+            raise ManifestError("Java path contains unsupported characters.")
+
+    @staticmethod
+    def _validate_start_template(raw_command: list[str]) -> None:
+        if not raw_command:
+            raise ManifestError("Start command is empty.")
+        if len(raw_command) > 80:
+            raise ManifestError("Start command contains too many arguments.")
+        if raw_command[0] != "{java}":
+            raise ManifestError(
+                "Start command is invalid. First token must be '{java}'."
+            )
+        for token in raw_command:
+            if not isinstance(token, str):
+                raise ManifestError("Start command contains a non-string token.")
+            if not token.strip():
+                raise ManifestError("Start command contains an empty token.")
+            if len(token) > 1024:
+                raise ManifestError("Start command token exceeds supported length.")
+            if any(char in token for char in ("\x00", "\r", "\n")):
+                raise ManifestError("Start command contains unsupported characters.")
+            if token in {"|", "||", "&&", ";"}:
+                raise ManifestError("Start command contains blocked shell token.")
+
+    def _validate_start_paths(self, raw_command: list[str], instance_dir: Path) -> None:
+        token_count = len(raw_command)
+        for idx, token in enumerate(raw_command):
+            if token.startswith("@") and len(token) > 1:
+                self._resolve_under_instance_dir(token[1:], instance_dir)
+            if token == "-jar" and idx + 1 < token_count:
+                jar_path = self._resolve_under_instance_dir(raw_command[idx + 1], instance_dir)
+                if jar_path.suffix.lower() != ".jar":
+                    raise ManifestError("Start command '-jar' target must be a .jar file.")
+
+    @staticmethod
+    def _resolve_under_instance_dir(token: str, instance_dir: Path) -> Path:
+        normalized = token.strip().strip("\"'")
+        path = Path(normalized)
+        if path.is_absolute():
+            raise ManifestError(
+                "Start command contains absolute paths, which are blocked for security."
+            )
+        candidate = (instance_dir / path).resolve()
+        try:
+            candidate.relative_to(instance_dir)
+        except ValueError as exc:
+            raise ManifestError(
+                "Start command contains path traversal outside the server directory."
+            ) from exc
+        return candidate
