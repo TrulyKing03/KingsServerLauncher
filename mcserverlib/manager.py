@@ -11,6 +11,7 @@ from .providers import create_provider_registry
 from .utils import (
     normalize_loader,
     load_manifest,
+    parse_properties_file,
     save_manifest,
     write_eula,
     write_server_properties,
@@ -36,11 +37,17 @@ class ServerManager:
         provider_result = provider.install(request=request, http_client=self.http_client)
 
         write_eula(request.instance_dir, accepted=request.accept_eula)
-        if request.server_properties:
-            write_server_properties(
-                instance_dir=request.instance_dir,
-                properties=dict(request.server_properties),
-            )
+        existing_properties = parse_properties_file(
+            request.instance_dir / "server.properties"
+        )
+        requested_properties = dict(request.server_properties or {})
+        merged_properties = dict(existing_properties)
+        merged_properties.update(requested_properties)
+        merged_properties.setdefault("whitelist", "true")
+        write_server_properties(
+            instance_dir=request.instance_dir,
+            properties=merged_properties,
+        )
 
         manifest_path = save_manifest(
             instance_dir=request.instance_dir,

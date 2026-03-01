@@ -43,6 +43,8 @@ jobs:
     env:
       PACKAGE_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.package_mode || 'onefile' }}
       SIGN_WINDOWS: ${{ github.event_name == 'workflow_dispatch' && inputs.sign_windows || false }}
+      WINDOWS_PFX_BASE64: ${{ secrets.WINDOWS_PFX_BASE64 }}
+      WINDOWS_PFX_PASSWORD: ${{ secrets.WINDOWS_PFX_PASSWORD }}
       WINDOWS_TIMESTAMP_URL: ${{ secrets.WINDOWS_TIMESTAMP_URL != '' && secrets.WINDOWS_TIMESTAMP_URL || 'http://timestamp.digicert.com' }}
 
     steps:
@@ -67,11 +69,11 @@ jobs:
           python -m mcserverlib.build --name KingsServerLauncher --skip-bootstrap ${EXTRA_FLAGS}
 
       - name: Sign Windows Binaries
-        if: matrix.id == 'windows' && env.SIGN_WINDOWS == 'true' && secrets.WINDOWS_PFX_BASE64 != '' && secrets.WINDOWS_PFX_PASSWORD != ''
+        if: matrix.id == 'windows' && env.SIGN_WINDOWS == 'true' && env.WINDOWS_PFX_BASE64 != '' && env.WINDOWS_PFX_PASSWORD != ''
         shell: pwsh
         run: |
           $certPath = Join-Path $env:RUNNER_TEMP "codesign.pfx"
-          [IO.File]::WriteAllBytes($certPath, [Convert]::FromBase64String("${{ secrets.WINDOWS_PFX_BASE64 }}"))
+          [IO.File]::WriteAllBytes($certPath, [Convert]::FromBase64String($env:WINDOWS_PFX_BASE64))
           $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Filter signtool.exe -Recurse |
             Sort-Object FullName -Descending |
             Select-Object -First 1
@@ -85,7 +87,7 @@ jobs:
           foreach ($target in $targets) {
             & $signtool.FullName sign `
               /f $certPath `
-              /p "${{ secrets.WINDOWS_PFX_PASSWORD }}" `
+              /p $env:WINDOWS_PFX_PASSWORD `
               /tr "${env:WINDOWS_TIMESTAMP_URL}" `
               /td sha256 `
               /fd sha256 `
