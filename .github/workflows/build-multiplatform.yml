@@ -2,6 +2,20 @@ name: Build Multi-Platform Binaries
 
 on:
   workflow_dispatch:
+    inputs:
+      package_mode:
+        description: "PyInstaller packaging mode"
+        required: true
+        default: "onefile"
+        type: choice
+        options:
+          - onefile
+          - onedir
+      sign_windows:
+        description: "Sign Windows binaries (requires cert secrets)"
+        required: true
+        default: false
+        type: boolean
   push:
     branches:
       - main
@@ -26,6 +40,10 @@ jobs:
             id: macos
 
     runs-on: ${{ matrix.os }}
+    env:
+      PACKAGE_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.package_mode || 'onefile' }}
+      SIGN_WINDOWS: ${{ github.event_name == 'workflow_dispatch' && inputs.sign_windows || false }}
+      WINDOWS_TIMESTAMP_URL: ${{ secrets.WINDOWS_TIMESTAMP_URL != '' && secrets.WINDOWS_TIMESTAMP_URL || 'http://timestamp.digicert.com' }}
 
     steps:
       - name: Checkout
@@ -40,33 +58,78 @@ jobs:
         run: python -m pip install -e ".[build]"
 
       - name: Build Executable
-        run: python -m mcserverlib.build --name KingsServerLauncher --skip-bootstrap
+        shell: bash
+        run: |
+          EXTRA_FLAGS=""
+          if [ "${PACKAGE_MODE}" = "onedir" ]; then
+            EXTRA_FLAGS="--onedir"
+          fi
+          python -m mcserverlib.build --name KingsServerLauncher --skip-bootstrap ${EXTRA_FLAGS}
+
+      - name: Sign Windows Binaries
+        if: matrix.id == 'windows' && env.SIGN_WINDOWS == 'true' && secrets.WINDOWS_PFX_BASE64 != '' && secrets.WINDOWS_PFX_PASSWORD != ''
+        shell: pwsh
+        run: |
+          $certPath = Join-Path $env:RUNNER_TEMP "codesign.pfx"
+          [IO.File]::WriteAllBytes($certPath, [Convert]::FromBase64String("${{ secrets.WINDOWS_PFX_BASE64 }}"))
+          $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Filter signtool.exe -Recurse |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1
+          if (-not $signtool) {
+            throw "signtool.exe not found on runner."
+          }
+          $targets = Get-ChildItem -Path dist -Filter *.exe -File -Recurse
+          if (-not $targets) {
+            throw "No .exe files found to sign."
+          }
+          foreach ($target in $targets) {
+            & $signtool.FullName sign `
+              /f $certPath `
+              /p "${{ secrets.WINDOWS_PFX_PASSWORD }}" `
+              /tr "${env:WINDOWS_TIMESTAMP_URL}" `
+              /td sha256 `
+              /fd sha256 `
+              $target.FullName
+            & $signtool.FullName verify /pa $target.FullName
+          }
 
       - name: Collect Windows Artifact
         if: matrix.id == 'windows'
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path out | Out-Null
-          Copy-Item dist\KingsServerLauncher.exe out\KingsServerLauncher-windows.exe
+          if ($env:PACKAGE_MODE -eq "onedir") {
+            Compress-Archive -Path dist\KingsServerLauncher\* -DestinationPath out\KingsServerLauncher-windows-onedir.zip -Force
+          } else {
+            Compress-Archive -Path dist\KingsServerLauncher.exe -DestinationPath out\KingsServerLauncher-windows-onefile.zip -Force
+          }
+          $hashLines = @()
+          Get-ChildItem -Path out -File | ForEach-Object {
+            $hash = (Get-FileHash -Algorithm SHA256 $_.FullName).Hash.ToLower()
+            $hashLines += "$hash  $($_.Name)"
+          }
+          $hashLines | Set-Content -Path out\SHA256SUMS.txt -Encoding UTF8
 
       - name: Collect Linux Artifact
         if: matrix.id == 'linux'
         shell: bash
         run: |
           mkdir -p out
-          cp dist/KingsServerLauncher out/KingsServerLauncher-linux
-          chmod +x out/KingsServerLauncher-linux
+          tar -czf "out/KingsServerLauncher-linux-${PACKAGE_MODE}.tar.gz" -C dist KingsServerLauncher
+          (cd out && sha256sum * > SHA256SUMS.txt)
 
       - name: Collect macOS Artifact
         if: matrix.id == 'macos'
         shell: bash
         run: |
           mkdir -p out
-          cp dist/KingsServerLauncher out/KingsServerLauncher-macos
-          chmod +x out/KingsServerLauncher-macos
+          tar -czf "out/KingsServerLauncher-macos-${PACKAGE_MODE}.tar.gz" -C dist KingsServerLauncher
+          (cd out && shasum -a 256 * > SHA256SUMS.txt)
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: KingsServerLauncher-${{ matrix.id }}
           path: out/*
+          if-no-files-found: error
+          retention-days: 30
