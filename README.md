@@ -277,26 +277,6 @@ Prints the stored install manifest as JSON.
 
 Opens the desktop launcher UI.
 
-## Project Layout
-
-```text
-mcserverlib/
-  build.py                # one-command PyInstaller build
-  catalog.py              # version catalog for launcher UI
-  cli.py                  # command line entrypoint
-  gui_launcher.py         # desktop launcher
-  manager.py              # high-level install/start API
-  process.py              # process lifecycle and log streaming
-  models.py               # dataclasses for requests/results/manifests
-  http.py                 # network/download helper
-  minecraft.py            # Mojang metadata helpers
-  providers/              # per-loader installers/resolvers
-build_launcher.ps1        # Windows one-command build wrapper
-tests/
-  test_*.py               # deterministic unit tests
-pyproject.toml
-```
-
 ## Testing
 
 Run unit tests:
