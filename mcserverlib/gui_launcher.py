@@ -73,7 +73,8 @@ class LauncherApp(tk.Tk):
     def _configure_style(self) -> None:
         style = ttk.Style(self)
         available_themes = set(style.theme_names())
-        for candidate in ("vista", "winnative", "clam"):
+        # Prefer clam because it consistently honors custom button colors on Windows.
+        for candidate in ("clam", "vista", "winnative"):
             if candidate in available_themes:
                 style.theme_use(candidate)
                 break
@@ -160,8 +161,8 @@ class LauncherApp(tk.Tk):
         )
         style.map(
             "Primary.TButton",
-            background=[("active", "#1D4ED8"), ("disabled", "#A8B5CC")],
-            foreground=[("disabled", "#E8ECF4")],
+            background=[("active", "#1D4ED8"), ("disabled", "#D3DAE8")],
+            foreground=[("disabled", "#3D4A63")],
         )
         style.configure(
             "Secondary.TButton",
@@ -174,7 +175,7 @@ class LauncherApp(tk.Tk):
         style.map(
             "Secondary.TButton",
             background=[("active", "#D2DBED"), ("disabled", "#EEF2F9")],
-            foreground=[("disabled", "#8A97B0")],
+            foreground=[("disabled", "#66748F")],
         )
         style.configure(
             "Action.TButton",
@@ -186,8 +187,8 @@ class LauncherApp(tk.Tk):
         )
         style.map(
             "Action.TButton",
-            background=[("active", "#15803D"), ("disabled", "#A8B5CC")],
-            foreground=[("disabled", "#E8ECF4")],
+            background=[("active", "#15803D"), ("disabled", "#D3DAE8")],
+            foreground=[("disabled", "#3D4A63")],
         )
         style.configure(
             "Warn.TButton",
@@ -199,8 +200,8 @@ class LauncherApp(tk.Tk):
         )
         style.map(
             "Warn.TButton",
-            background=[("active", "#B91C1C"), ("disabled", "#A8B5CC")],
-            foreground=[("disabled", "#E8ECF4")],
+            background=[("active", "#B91C1C"), ("disabled", "#D3DAE8")],
+            foreground=[("disabled", "#3D4A63")],
         )
         style.configure(
             "TCheckbutton",
